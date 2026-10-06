@@ -1,0 +1,68 @@
+# JavaScript dependencies and frontend build output
+node_modules/
+/dist/
+.vite/
+*.tsbuildinfo
+
+# Rust/Tauri build output and generated platform schemas
+/target/
+/src-tauri/target/
+/src-tauri/gen/
+*.app/
+*.dmg
+
+# Python bytecode, virtual environments and tooling caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Test reports, coverage and logs
+/coverage/
+/htmlcov/
+.coverage
+.coverage.*
+*.log
+
+# Local configuration and secrets; sanitized examples remain trackable
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.template
+.local/
+/secrets/
+*.key
+*.pem
+*.p8
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile
+ai-deck-diagnostics*.json
+
+# Personal editor files; allow shared VS Code project configuration
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# macOS and Windows filesystem metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+Desktop.ini
+
+# Keep package-lock.json, src-tauri/Cargo.lock, source icons and the generated
+# contracts/defaults/catalog schema in Git; they are part of reproducible builds.

@@ -1,0 +1,31 @@
+# Normalize text in the repository and working tree to LF on every platform.
+# Binary detection stays automatic for unlisted file types.
+* text=auto eol=lf
+
+# SVG icons are editable source, not binary assets.
+*.svg text eol=lf
+
+# Native Windows command scripts require CRLF when checked out.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets: no line-ending conversion, text diff or automatic text merge.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+
+# Keep generated files tracked and diffable; GitHub can collapse their diffs.
+/src/shared/contracts.ts linguist-generated=true
+/src/shared/defaults.json linguist-generated=true
+/model-catalog/schema.json linguist-generated=true
+/package-lock.json linguist-generated=true
+/src-tauri/Cargo.lock linguist-generated=true

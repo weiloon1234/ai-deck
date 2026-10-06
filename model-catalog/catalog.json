@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "runtimes": [{
+    "id": "vllm-0-31-0", "engine": "vllm", "version": "0.31.0",
+    "image": "vllm/vllm-openai@sha256:c1c9f6fd5c109ba7f0546a59f5b2f15fb87f64c77782e90a27b648b42a8e67c3",
+    "inferencePort": 8000, "statusPort": 8001,
+    "downloadTimeoutSeconds": 3600, "loadTimeoutSeconds": 1200
+  }],
+  "profiles": [
+    {
+      "id": "gpt-oss-20b", "displayName": "GPT OSS 20B", "schemaVersion": 1, "version": 2,
+      "repository": "openai/gpt-oss-20b", "revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+      "tokenizerRevision": null, "servedModel": "gpt-oss-20b", "runtimeId": "vllm-0-31-0", "access": "public",
+      "gpuTypes": ["NVIDIA H100 80GB HBM3"], "gpuCount": 1, "minGpuMemoryGb": 80, "minCpuRamGb": 64,
+      "diskGb": 100, "minCacheGb": 30, "quantization": null, "contextTokens": 16384, "maxSessions": 2,
+      "sampling": { "temperature": 0.7, "topP": 0.95 }, "toolParser": "openai", "reasoningParser": null,
+      "chatTemplate": null, "modelCachePath": "/workspace/cache/huggingface", "compileCachePath": "/workspace/cache/compile",
+      "supportsResponses": true, "supportsMessages": true, "evidence": [],
+      "limitations": ["Candidate only: no Runpod coding-loop test has been performed.", "Native MXFP4 weights and Harmony formatting require runtime validation.", "Context length and two-session capacity are proposed, not measured.", "Claude Code with non-Claude models is experimental and unsupported by Anthropic."]
+    },
+    {
+      "id": "qwen3-coder-30b", "displayName": "Qwen3 Coder 30B", "schemaVersion": 1, "version": 2,
+      "repository": "Qwen/Qwen3-Coder-30B-A3B-Instruct", "revision": "b2cff646eb4bb1d68355c01b18ae02e7cf42d120",
+      "tokenizerRevision": null, "servedModel": "qwen3-coder-30b", "runtimeId": "vllm-0-31-0", "access": "public",
+      "gpuTypes": ["NVIDIA H100 80GB HBM3"], "gpuCount": 1, "minGpuMemoryGb": 80, "minCpuRamGb": 96,
+      "diskGb": 150, "minCacheGb": 90, "quantization": null, "contextTokens": 16384, "maxSessions": 2,
+      "sampling": { "temperature": 0.7, "topP": 0.8 }, "toolParser": "qwen3_coder", "reasoningParser": null,
+      "chatTemplate": null, "modelCachePath": "/workspace/cache/huggingface", "compileCachePath": "/workspace/cache/compile",
+      "supportsResponses": true, "supportsMessages": true, "evidence": [],
+      "limitations": ["Candidate only: no Runpod coding-loop test has been performed.", "BF16 weights need sufficient free GPU memory for the selected context and concurrency.", "Responses tool continuation and Messages helper requests remain unverified.", "Claude Code with non-Claude models is experimental and unsupported by Anthropic."]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "policy": {
+    "paidProvisioningEnabled": false,
+    "maxHourlyUsd": 10.0,
+    "totalBudgetUsd": null,
+    "maxLifetimeMinutes": null,
+    "acknowledgeOfflineRisk": false,
+    "autoTerminateDelaySeconds": null,
+    "claudeEnabled": true
+  },
+  "huggingFaceSecret": null,
+  "codexPath": null,
+  "claudePath": null
+}

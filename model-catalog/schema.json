@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CatalogDocument",
+  "type": "object",
+  "properties": {
+    "profiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModelProfile"
+      }
+    },
+    "runtimes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RuntimeProfile"
+      }
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runtimes",
+    "profiles"
+  ],
+  "$defs": {
+    "CompatibilityEvidence": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cli": {
+          "type": "string"
+        },
+        "cliVersion": {
+          "type": "string"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "gpuType": {
+          "type": "string"
+        },
+        "report": {
+          "type": "string"
+        },
+        "testedAt": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "cli",
+        "cliVersion",
+        "gpuType",
+        "fingerprint",
+        "testedAt",
+        "checks",
+        "report"
+      ]
+    },
+    "ModelAccess": {
+      "type": "string",
+      "enum": [
+        "public",
+        "gated",
+        "private"
+      ]
+    },
+    "ModelProfile": {
+      "type": "object",
+      "properties": {
+        "access": {
+          "$ref": "#/$defs/ModelAccess"
+        },
+        "chatTemplate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileCachePath": {
+          "type": "string"
+        },
+        "contextTokens": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "diskGb": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompatibilityEvidence"
+          }
+        },
+        "gpuCount": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "gpuTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "maxSessions": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "minCacheGb": {
+          "description": "Zero is accepted only when deserializing legacy deployment snapshots.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "minCpuRamGb": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "minGpuMemoryGb": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "modelCachePath": {
+          "type": "string"
+        },
+        "quantization": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasoningParser": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "repository": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "runtimeId": {
+          "type": "string"
+        },
+        "sampling": {
+          "$ref": "#/$defs/Sampling"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "servedModel": {
+          "type": "string"
+        },
+        "supportsMessages": {
+          "type": "boolean"
+        },
+        "supportsResponses": {
+          "type": "boolean"
+        },
+        "tokenizerRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "toolParser": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "displayName",
+        "schemaVersion",
+        "version",
+        "repository",
+        "revision",
+        "servedModel",
+        "runtimeId",
+        "access",
+        "gpuTypes",
+        "gpuCount",
+        "minGpuMemoryGb",
+        "minCpuRamGb",
+        "diskGb",
+        "contextTokens",
+        "maxSessions",
+        "sampling",
+        "modelCachePath",
+        "compileCachePath",
+        "supportsResponses",
+        "supportsMessages",
+        "evidence",
+        "limitations"
+      ]
+    },
+    "RuntimeProfile": {
+      "type": "object",
+      "properties": {
+        "downloadTimeoutSeconds": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "engine": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "inferencePort": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "loadTimeoutSeconds": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "statusPort": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "engine",
+        "version",
+        "image",
+        "inferencePort",
+        "statusPort",
+        "downloadTimeoutSeconds",
+        "loadTimeoutSeconds"
+      ]
+    },
+    "Sampling": {
+      "type": "object",
+      "properties": {
+        "temperature": {
+          "type": "number",
+          "format": "double"
+        },
+        "topP": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "temperature",
+        "topP"
+      ]
+    }
+  }
+}

@@ -1,0 +1,36 @@
+[package]
+name = "ai-deck"
+version = "0.1.0"
+description = "Temporary GPU inference for isolated local coding sessions"
+edition = "2021"
+
+[lib]
+name = "ai_deck"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4"] }
+keyring = { version = "3.6", features = ["apple-native", "windows-native"] }
+portable-pty = "0.9"
+rfd = "0.17"
+ts-rs = "10.1"
+schemars = "1.2"
+sha2 = "0.10"
+fs2 = "0.4"
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+strip = true
