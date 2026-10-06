@@ -86,41 +86,57 @@ The installed-app identifier and Keychain service stay `com.runpoddeck.desktop` 
 | `tests/runtime/` | Offline Python runtime tests |
 | `tests/ui/` | Vue component and event-handler tests using existing compiler packages |
 | `docs/` | Operating guidance, design decisions, compatibility limits and validation evidence |
+| `Makefile` | Mac setup, development, checks, tests and packaging commands |
 | `AGENTS.md` | Development rules, with focused guidance in relevant subdirectories |
 
 ## Develop and build
 
-Development requires Node/npm, Rust/Cargo and the macOS Xcode command-line toolchain. Use the versions supported by the existing manifests and lockfiles; obtain approval before adding dependencies or upgrading toolchains. The current deliverable is a personal Apple Silicon app targeting macOS 13 or later, without distribution signing/notarization.
+From the project root, use the [Makefile](Makefile). It works with the Make shipped by Apple's command-line tools and delegates existing build/check/test tasks to `package.json`.
 
-With dependency installation approved:
+### First setup on a colleague's Mac
+
+Install these prerequisites through your team's approved process:
+
+- Xcode or Xcode Command Line Tools, including `make`, Clang and the macOS SDK. For desktop work, the command-line tools can be installed with `xcode-select --install`. See [Tauri's macOS prerequisites](https://v2.tauri.app/start/prerequisites/#macos).
+- Node.js and npm compatible with the locked Vite dependency. `make doctor` prints its engine requirement directly from `package-lock.json`; `make setup` enforces it during installation. See [Vite prerequisites](https://vite.dev/guide/).
+- Rust/Cargo with Rustfmt and Clippy. For a rustup-managed installation, add missing components with `rustup component add rustfmt clippy`. Follow the [official Rust installation guide](https://www.rust-lang.org/tools/install) if Rust is absent.
+- Python 3.9 or newer for the offline runtime tests. These tests need no pip packages.
+
+The currently verified toolchain is Node 24.21.0, npm 12.0.2, Rust 1.98.1 and Python 3.14.7 on Apple Silicon. Other supported versions may work; dependency upgrades and toolchain changes still require approval. Make does not install system tools or upgrade them automatically.
+
+After cloning, run these commands **separately**, in order:
 
 ```sh
-npm ci
-npm run tauri -- dev
+make doctor  # Check prerequisites without installing anything
+make setup   # Install npm dependencies and fetch Rust crates from the lockfiles
+make verify  # Run checks and all regular local tests
+make dev     # Open the desktop app with development reload
 ```
 
-`npm run dev` starts a browser preview only. Native actions, cloud provisioning and process launch are unavailable there.
+`make setup` needs network access and replaces `node_modules` using `npm ci --engine-strict`; Cargo fetch uses `--locked`. It does not modify lockfiles or install global packages. Run it again after dependency lockfiles change. Cargo may also fetch missing crates during a later build or check; none of these commands uses a cloud inference account. Regular tests do not require Runpod credentials, model weights, Docker, Codex or Claude Code installations. The coding CLIs are needed when using the corresponding app features.
 
-Build the desktop app:
+### Everyday commands
 
-```sh
-npm run tauri -- build --bundles app
-```
+| Command | What it does |
+| --- | --- |
+| `make` / `make help` | List targets; no build or install starts by default |
+| `make dev` | Start the native desktop app |
+| `make preview` | Start the browser preview, without native actions |
+| `make contracts` | Regenerate contracts/defaults/schema after changing their Rust sources |
+| `make check` | Check generated-file drift, Vue/TypeScript build, Rust formatting and Clippy |
+| `make test` | Run all regular local tests |
+| `make test-ui` / `make test-runtime` | Run a focused UI or Python test suite |
+| `make verify` | Run `check`, then `test`, sequentially even with `make -j` |
+| `make build` | Build the macOS `.app` for the host architecture |
+| `make clean` | Remove only `dist/`, `src-tauri/target/` and `src-tauri/gen/` |
 
-The bundle is written to `src-tauri/target/release/bundle/macos/AI Deck.app`. Open it from Finder. Follow the [operating guide](docs/operating-guide.md) for account, CLI and project setup.
+The app bundle is written to `src-tauri/target/release/bundle/macos/AI Deck.app`. Open it from Finder. The configured minimum system version is macOS 13. The personal build has been verified on Apple Silicon; an Intel build is not yet verified, and a default host build is not a universal binary. Distribution signing/notarization is not configured. Follow the [operating guide](docs/operating-guide.md) for account, CLI and project setup.
+
+If the checkout is moved and Tauri reports generated files under its previous absolute path, run `make clean`, then rebuild. Cleaning removes built app bundles but preserves `node_modules`, project sources, lockfiles, app data and Keychain credentials.
 
 ## Validation and development conventions
 
-```sh
-# Regenerate after changing Rust contracts, defaults or catalog schema
-npm run contracts
-
-# Check generated-file drift, TypeScript/Vite, Rust formatting and Clippy
-npm run check
-
-# Run native, Python and Vue regressions
-npm test
-```
+`make verify` is the common pre-review check. The underlying `npm run contracts`, `npm run check` and `npm test` commands remain available and define their respective behavior; the Makefile does not duplicate those command chains.
 
 Regular tests use fake cloud services, disposable directories, local pseudo-terminals and loopback HTTP servers. They do not create Runpod resources, download model weights or invoke paid inference. Some environments require permission for local listeners and child processes.
 

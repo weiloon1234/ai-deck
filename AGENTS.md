@@ -34,6 +34,7 @@ The project/package name is `ai-deck`, Rust library `ai_deck`, and displayed pro
 | Bundled model/runtime settings | `model-catalog/catalog.json`; validate in `model_catalog.rs` |
 | Imported metadata, analysis and quotes | Existing `StateStore` through `model_import_service.rs` |
 | Generated frontend types/defaults/catalog schema | Rust sources and `src-tauri/examples/export_contracts.rs`; run `npm run contracts` |
+| Developer commands | `package.json` scripts; `Makefile` provides Mac-friendly wrappers |
 | Shared UI state and command/event bridge | `src/shared/useDeck.ts` |
 | CLI isolation and supported versions | `src-tauri/src/cli_adapters/` |
 | GPU startup behavior | `containers/vllm-runtime/launcher.py` |
@@ -42,6 +43,7 @@ Do not hand-edit `src/shared/contracts.ts`, `src/shared/defaults.json` or `model
 
 ## Verification and documentation
 
+- Keep Make targets thin: reuse existing npm scripts for shared command chains. `make doctor` is read-only; do not add implicit npm installation or automatic system-tool/CLI installation to other targets. Keep regular checks/tests free of cloud credentials and paid work.
 - Add regression tests for changed behavior or a reproduced bug; avoid tests that merely repeat implementation details or test copy changes. Use existing fixtures and test infrastructure.
 - After changing shared contracts/defaults/schema, run `npm run contracts` and inspect the generated changes.
 - Run relevant tests, then `npm run check` and `npm test` for cross-layer changes. These cover generated drift, Vue/TypeScript build, Rust format/lints, native tests, Python runtime tests and Vue tests.
