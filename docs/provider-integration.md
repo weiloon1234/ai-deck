@@ -35,7 +35,7 @@ For large models, the available-node `rentableStorageGb` and the returned instan
 ## Contracts needed before enabling GPUtw
 
 1. **Recoverable creation identity.** Confirm a supported client request ID, tag or custom environment field that survives create/list/get and can identify this installation and deployment after a lost create response. The inspected request/response reference and vendor MCP create schema do not document one. This is an unresolved contract, not proof that the service lacks the feature. Never substitute account access, creation time or matching hardware for app-specific ownership. [Lifecycle reference](https://github.com/GPUtw-ai/GPUtw-Skill/blob/master/guides/03-instances-lifecycle.md), [vendor create schema](https://github.com/GPUtw-ai/GPUtw-Skill/blob/master/mcp/src/tools/instances.ts)
-2. **Pinned supervisor image and startup contract.** The wrapper has been built and checked locally below; publish it before selecting an immutable registry digest. Confirm that GPUtw's required SSH/Web UI readiness permits an authenticated status service during long weight downloads. The vendor reference requires one of those interfaces. Do not bypass supervisor authentication or enable root SSH just to satisfy a health check. [Custom-image requirements](https://github.com/GPUtw-ai/GPUtw-Skill/blob/master/guides/03-instances-lifecycle.md)
+2. **Startup contract for the published supervisor image.** The wrapper is now public with a verified immutable digest recorded below. Confirm that GPUtw's required SSH/Web UI readiness permits an authenticated status service during long weight downloads. The vendor reference requires one of those interfaces. Do not bypass supervisor authentication or enable root SSH just to satisfy a health check. [Custom-image requirements](https://github.com/GPUtw-ai/GPUtw-Skill/blob/master/guides/03-instances-lifecycle.md)
 3. **Provider-bound records and selections.** Add a persisted provider identity with an explicit Runpod default for old records, route each saved deployment through its own adapter, and bind hardware quotes, endpoints, credentials, storage and runtime fingerprints to that provider. Changing a selection must never retarget existing sessions. This follows from AI Deck's current persistence and cleanup invariants.
 
 Owner-led live acceptance must still prove authentication rejection, startup, coding compatibility, uncertain-response recovery and verified deletion. A public metadata fetch does not satisfy those gates.
@@ -73,6 +73,18 @@ The owner selected the public package `ghcr.io/weiloon1234/ai-deck-runtime`, wit
 
 The build's `InvalidDefaultArgInFrom` advisory reflects the deliberately required `BASE_IMAGE` argument. The plan supplied the validated catalog digest; no fallback image was duplicated in the recipe. GPU initialization, model loading and GPUtw's external health check were not tested.
 
+### Verified registry upload — 13 October 2026
+
+The owner resumed publication. The current supervisor, Dockerfile, context filter and catalog base still match the verified recipe. All 42 archive blobs were hashed before authentication. GHCR reused 41 existing blobs and accepted the remaining 5,153,216,601-byte layer. Authenticated readback verified the exact child manifests, index and derived tag.
+
+Registry image: `ghcr.io/weiloon1234/ai-deck-runtime@sha256:fda0b0519a13eb0ccb9b76faa40908dc37c0a4a3eb87f82c646dc37a71bbde07`. This is now a verified registry identity rather than a local-only ID. Its Linux/amd64 runtime manifest and config match the earlier isolated CPU verification. No GPU, model weights or paid inference were used.
+
+The successful direct HTTPS layer stream took 815 seconds with a bounded 30-minute client wait. Earlier short-cutoff attempts were stopped before confirmation, including a briefly duplicated restart that was corrected. The observed success supersedes the earlier inferred transfer blocker; it does not establish a new vendor timeout guarantee. No Git commit, push, merge, GitHub workflow run or dependency change was performed.
+
+Public visibility is confirmed after the owner's fresh approval, and the package is connected to the selected `weiloon1234/ai-deck-runtime` repository. [Public package](https://github.com/weiloon1234/ai-deck-runtime/pkgs/container/ai-deck-runtime). Anonymous GHCR requests verified the exact index digest, its single runnable Linux/amd64 manifest, the matching runtime config reference and the largest layer's digest/size through HEAD. The verifier used no owner credential helper or management key and downloaded no image layers. The initial automatic approval rejection was resolved; no package setting remains pending.
+
+Use the immutable registry image above when a GPUtw adapter is eventually configured. Keep the current Runpod base and saved deployment snapshots intact. The availability gate is complete; GPUtw creation recovery, startup/readiness, storage quotas, provider-bound persistence and real owner-operated GPU acceptance remain separate gates. No GitHub repository content or workflow was published or executed; linking the package does not commit source files.
+
 ### Publication attempts and prepared GitHub workflow — 11 October 2026
 
 The owner's GHCR Docker login works and the GitHub browser is signed in. Publication is still incomplete: authenticated registry HEAD checks confirmed **41 of 42 blobs**, with the **5,153,216,601-byte** layer still missing. No final registry digest, public package visibility or anonymous pull verification is claimed.
@@ -97,7 +109,7 @@ Authenticate locally with a GitHub token (classic) scoped to `write:packages`, u
 docker login ghcr.io -u weiloon1234
 ```
 
-Once login is available, upload the verified local tag. Set the package's visibility to **Public** in its GitHub package settings, then verify its manifest anonymously and record the registry-returned digest. GitHub initially creates private packages even when the linked source repository is public. The OCI source label links the package; it does not upload this project's source files to the selected GitHub repository. No Git commit or Git push is part of this work. [GHCR publishing and repository linking](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+Once login is available, upload the verified local tag. Set the package's visibility to **Public** in its GitHub package settings, then verify its manifest anonymously and record the registry-returned digest. GitHub initially creates private packages even when the linked source repository is public. The OCI source label declares the repository; if the association is not visible, use Connect Repository for the selected repository, as this publication did. Neither labeling nor connecting uploads source files. No Git commit or Git push is part of this work. [GHCR publishing and repository linking](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 
 ## Checking marker readback without provisioning
 

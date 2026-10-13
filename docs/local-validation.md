@@ -26,6 +26,18 @@ No `/simplify` command was available. The manual pass reused the existing shared
 
 The **10 October 2026** full checks passed **84 regular tests** (53 Rust, 18 Python, 13 Vue), including two provider regressions and four wrapper-plan regressions. The later wrapper repository-label change passed **19 Python tests** and the built image passed the separate local supervisor/authentication check recorded next. The full native/UI suite was not repeated for that script-only change at that time. The initial 8 October review's 68-test result also remains historical evidence below.
 
+## Verified registry upload — 13 October 2026
+
+Resumed the owner-authorized GHCR publication. Current runtime sources and the catalog base matched the previously checked recipe; all 42 archive blob hashes matched. GHCR reused 41 blobs and accepted the remaining 5.15 GB layer after an 815-second direct HTTPS transfer. The client allowed 30 minutes instead of the earlier 570-second cutoff. A failed process-stop check briefly created a duplicate restart; both clients were then stopped and one uploader completed. No uploader remains running.
+
+Authenticated registry readback verified the image's manifests, index and recipe-derived tag. Published identity: `ghcr.io/weiloon1234/ai-deck-runtime@sha256:fda0b0519a13eb0ccb9b76faa40908dc37c0a4a3eb87f82c646dc37a71bbde07`. Its Linux/amd64 runtime manifest/config match the isolated CPU supervisor/authentication fixture recorded earlier. No paid GPU resource, model download or inference was used.
+
+Public visibility and association with `weiloon1234/ai-deck-runtime` are confirmed following fresh owner approval. Anonymous GHCR checks passed for the exact index digest, its single runnable Linux/amd64 manifest, the matching runtime config reference and the largest layer's digest/size via HEAD. No owner credentials were used by that verifier and no image layer was downloaded. The actual registry payload matches the earlier isolated CPU fixture; GPU/model inference remains untested.
+
+The package page visibly shows Public and the selected linked repository. The initial automatic approval rejection was resolved, and no package setting remains pending. Documentation links and `git diff --check` passed. These were publication/package settings and documentation updates; no desktop implementation, app bundle, lockfile, saved app state or Git history was changed. No repository content or GitHub workflow was uploaded/executed. [Public package](https://github.com/weiloon1234/ai-deck-runtime/pkgs/container/ai-deck-runtime), [publication details](provider-integration.md#verified-registry-upload--13-october-2026).
+
+Small verification records and the public-package screenshot are saved in ignored `.local/runtime-publication-2026-10-13/`. The task's 9 GB temporary OCI archive was removed after verification; the local Docker image and working GHCR login are retained.
+
 ## Runtime publication attempts — 11 October 2026
 
 GHCR login and GitHub browser sign-in are complete. Registry metadata confirmed 41 of 42 required blobs, but the remaining 5.15 GB layer and image manifest are not published. Docker upload retries and the cached builder did not produce a verified registry pin. A direct HTTPS stream reached about 750 MB in nine minutes before its own 570-second deadline; the measured rate is below that needed for GHCR's documented 10-minute upload limit. No public visibility change or anonymous manifest verification has been completed.
@@ -65,7 +77,7 @@ The owner explicitly authorized restoration of missing locked Rust dependencies.
 
 These desktop checks after dependency restoration used offline Cargo, fake services/keys and disposable state. No saved app state, Keychain credential, GPUtw account, image pull/build/publication, model download or inference was used in this run; the later authorized local image build is recorded above. The initial cache blocker recorded below is resolved. The packaged app contains the UI cleanup and provider refactor; Intel packaging, native launch against owner state, Developer ID signing and notarization remain unverified. [Ad-hoc signing guidance](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing). No `/simplify` command was available; the manual pass retained one supervisor and one base-image source, structured arguments and the existing test harness.
 
-GPUtw remains unselectable: creation marker readback and persistence, authenticated startup health, provider-enforced storage quota and a published wrapper digest are still unresolved. No speculative adapter or paid operation was added. See [provider integration](provider-integration.md) for prepared diagnostics/recipe and the exact remaining contracts.
+At this 10 October checkpoint, GPUtw remained unselectable: creation marker readback and persistence, authenticated startup health, provider-enforced storage quota and a published wrapper digest were unresolved. The 13 October publication above resolves image availability; the other contracts still block enabling GPUtw. No speculative adapter or paid operation was added. See [provider integration](provider-integration.md) for prepared diagnostics/recipe and the exact remaining contracts.
 
 ## GPUtw recovery contract probe — 10 October 2026
 
