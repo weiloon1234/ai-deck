@@ -2,7 +2,28 @@
 
 Host: Apple Silicon Mac, macOS 26.6.2. Implementation work: 5–6 October 2026; release-readiness review: 8 October 2026; provider assessment/refactor: 10 October 2026. **No Runpod or GPUtw compute, retained storage, model downloads or paid inference were created by these checks.**
 
-The latest **13 October 2026** missing-config correction passed generated-contract drift, production frontend, Rust formatting/Clippy and **119 regular tests** (68 Rust, 19 Python, 32 Vue). Four optional Rust probes are ignored by the regular suite and were not rerun for this change. Earlier installed-CLI checks and their limits are preserved below.
+The latest **13 October 2026** creation-recovery diagnostics passed generated-contract drift, production frontend, Rust formatting/Clippy and **121 regular tests** (69 Rust, 19 Python, 33 Vue). Four optional Rust probes are ignored by the regular suite and were not rerun for this change. Earlier installed-CLI checks and their limits are preserved below.
+
+## Creation-recovery diagnostics — 13 October 2026
+
+The owner reported that Reconcile briefly loaded and returned to the same unconfirmed-creation message, then requested Finish and confirmed that the Runpod console had no matching Pod. Source review confirmed that reconciliation performs a fresh listing without repeating creation, and Finish retains termination intent until ownership/deletion or explicit absence is verified. No live provider request, cleanup action or owner-state edit was performed by the agent in this correction.
+
+Found a reporting gap: the original sanitized create error was only returned to the transient UI error banner, which the next operation cleared. Added default-compatible `Deployment.creation_error` storage, generated its shared contract, displayed it separately for requests without a Pod ID and included it in the explicit diagnostics allowlist. The UI explains unchanged reconciliation results and points to the existing typed-name absence flow. Original errors from already-saved older records cannot be backfilled. Provider requests, ownership, spending, paid confirmation, startup checks and cleanup behavior are unchanged.
+
+| Check | Result and limits |
+| --- | --- |
+| `CARGO_NET_OFFLINE=true npm run contracts` | Passed. Generated `creationError` from Rust; no hand-edited contracts/defaults/schema. |
+| Focused native creation tests and `npm run test:ui` | Passed: original error survives reconciliation, Finish, restart and absence resolution; old records default to no saved error. The delay, exact name, fresh listing, late-creation cleanup and no-second-create requirements remain. UI coverage verifies persistent feedback after transient errors clear and retains disabled Enable/Open CLI. |
+| `CARGO_NET_OFFLINE=true npm run check` | Passed: generated drift, Vue/TypeScript production build, Rust formatting and Clippy with warnings denied. |
+| `CARGO_NET_OFFLINE=true npm test` | Passed: 69 Rust, 19 Python and 33 Vue tests; four opt-in probes ignored. Disposable state and fake services/credentials with authorized local listener/PTY permission only. |
+| Isolated browser review | Actual components with synthetic unconfirmed-creation/error data at 1280 × 850 and 960 × 650. A fake Reconcile preserves the error; recovery instructions fit without horizontal overflow or console warnings/errors. Captures are ignored under `.local/model-configuration/creation-recovery-*.png`. The automatic design hook reported no deterministic findings; this is a narrow fix rather than a whole-app audit. |
+| `CARGO_NET_OFFLINE=true npm run tauri -- build --bundles app` and `codesign --verify --deep --strict` | Passed. Rebuilt and verified the final arm64 app with its existing identifier and ad-hoc signature. The native app was not opened against owner state; Developer ID signing/notarization was not performed. |
+
+A focused manual simplification pass reused `AppError`, the existing atomic StateStore, stage helper, recovery action and fixtures; no `/simplify` command was available. README, operating guidance and native/frontend AGENTS describe the correction. Existing `.gitignore`/`.gitattributes` cover the preview, generated contracts and desktop output; no rules, dependencies, lockfiles or runtime image changed. No paid cloud tests, model weights, inference or owner credentials were used for this implementation/verification.
+
+### Earlier owner-led access troubleshooting
+
+Owner screenshots reported failed paid startup attempts and confirmed cleanup in the app. Their saved failure reason identified a Hugging Face HTTP 401; this was not independently rechecked against the cloud. At the owner's explicit request, a separately scoped read-only check used their supplied token via hidden terminal input: account authentication and the model's pinned small config both returned HTTP 200. The token was not printed, placed in command-line arguments or saved; the temporary credential-free helper was removed. No GPU, weight download or inference was involved. The owner's screenshot showed the raw token in the app's secret-name field; instructions corrected that to the Runpod secret name. These observations do not establish successful startup, GPU capacity or coding compatibility, and no passing model evidence was added.
 
 ## Missing local model config — 13 October 2026
 

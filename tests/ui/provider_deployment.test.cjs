@@ -50,3 +50,26 @@ test('late hardware from a previous provider is discarded', async () => {
   await pending;
   assert.equal(deck.hardware.value, null);
 });
+
+test('unconfirmed creation retains its original error and explains reconcile without issuing another creation', async () => {
+  const deck = fixture(); const calls = [];
+  const deployment = { id: 'fixture-deployment', provider: 'runpod', podName: 'ai-deck-fixture', podIds: [], stage: 'reconciliationRequired', createdAt: 100, deadlineAt: 3700,
+    hourlyUsd: 3, gpuType: 'fixture-gpu', gpuCount: 1, dataCenterId: 'fixture-dc', profile: { model: { displayName: 'Disposable fixture', maxSessions: 1, servedModel: 'fixture', repository: 'fixture/model', version: 1 }, fingerprint: 'fixture-fingerprint' },
+    message: 'No owned Pod is visible yet.', creationError: { code: 'provider_configuration', message: 'The provider rejected the deployment configuration.', recovery: 'Review the provider console.' } };
+  deck.activeDeployment.value = deployment; deck.state.value.deployments = [deployment];
+  deck.error.value = { message: 'Transient operation error' };
+  deck.perform = async (_label, action) => { deck.error.value = null; return action(); };
+  deck.call = async command => calls.push(command);
+  const render = component('src/features/deployments/DeploymentsView.vue', deck).setup({}, { emit() {} });
+  const tree = render({}, []);
+  assert.match(text(tree), /Original creation error:\s+The provider rejected the deployment configuration/);
+  assert.match(text(tree), /does not retry creation/); assert.match(text(tree), /Resolve an absent creation/);
+  await find(tree, n => n.type === 'button' && text(n) === 'Reconcile').props.onClick();
+  assert.deepEqual(calls, ['reconcile']); assert.equal(deck.error.value, null);
+  assert.match(text(render({}, [])), /Original creation error/);
+  assert.equal(find(render({}, []), n => n.type === 'button' && text(n) === 'Enable endpoint').props.disabled, true);
+  assert.equal(find(render({}, []), n => n.type === 'button' && text(n) === 'Open CLI').props.disabled, true);
+  delete deployment.creationError; // Old records still render actionable recovery instructions.
+  assert.doesNotMatch(text(render({}, [])), /Original creation error/);
+  assert.match(text(render({}, [])), /Resolve an absent creation/);
+});

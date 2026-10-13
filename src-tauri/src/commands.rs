@@ -326,7 +326,7 @@ pub async fn export_diagnostics(core: Core<'_>) -> Result<bool> {
     let state = core.store.read()?;
     // Explicit allowlist; no settings, project paths, terminal output, env, or secrets.
     let deployments: Vec<_> = state.deployments.iter().map(|d| serde_json::json!({"deploymentId":d.id,"podIds":d.pod_ids,
-        "profileId":d.profile.model.id,"fingerprint":d.profile.fingerprint,"stage":d.stage,"message":d.message,"failureReason":d.failure_reason,
+        "profileId":d.profile.model.id,"fingerprint":d.profile.fingerprint,"stage":d.stage,"message":d.message,"failureReason":d.failure_reason,"creationError":d.creation_error,
         "createdAt":d.created_at,"terminatedAt":d.terminated_at,"verifiedAt":d.verified_at})).collect();
     let report = serde_json::json!({"appVersion":env!("CARGO_PKG_VERSION"),"generatedAt":now(),"offlineExpiryVerified":false,"deployments":deployments});
     let Some(file) = rfd::AsyncFileDialog::new()

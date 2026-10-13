@@ -255,7 +255,91 @@ async fn lost_creation_is_reconciled_without_a_second_create_and_checks_actual_p
     assert_eq!(d.stage, DeploymentStage::Terminated);
     assert_eq!(d.hourly_usd, 11.0);
     assert!(d.failure_reason.unwrap().contains("price"));
+    assert_eq!(d.creation_error.unwrap().code, "network_unavailable");
     assert_eq!(f.provider.creates.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn original_creation_error_survives_reconcile_finish_restart_and_absence_resolution() {
+    let f = Fixture::new();
+    f.authorize_mock();
+    f.provider.lose_create.store(true, Ordering::SeqCst);
+    assert_eq!(
+        f.core.provision(f.request()).await.unwrap_err().code,
+        "ambiguous_create"
+    );
+    let d = f.core.store.read().unwrap().deployments.remove(0);
+    let error = serde_json::to_value(d.creation_error.as_ref().unwrap()).unwrap();
+    assert_eq!(error["code"], "network_unavailable");
+    f.provider.pods.lock().unwrap().clear();
+    f.core.reconcile_all().await.unwrap();
+    assert!(f
+        .core
+        .deployment(&d.id)
+        .unwrap()
+        .message
+        .contains("No owned Pod"));
+    assert!(f.core.provision(f.request()).await.is_err());
+    f.core.finish(&d.id).await.unwrap();
+    let unresolved = f.core.deployment(&d.id).unwrap();
+    assert_eq!(unresolved.intended_action, "terminate");
+    assert_eq!(unresolved.stage, DeploymentStage::ReconciliationRequired);
+    assert_eq!(
+        serde_json::to_value(unresolved.creation_error.as_ref().unwrap()).unwrap(),
+        error
+    );
+
+    let copy = tempfile::tempdir().unwrap();
+    std::fs::write(
+        copy.path().join("state.json"),
+        serde_json::to_vec(&f.core.store.read().unwrap()).unwrap(),
+    )
+    .unwrap();
+    let reopened = StateStore::open(copy.path().into())
+        .unwrap()
+        .read()
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(reopened.deployments[0].creation_error.as_ref().unwrap()).unwrap(),
+        error
+    );
+    let mut legacy = serde_json::to_value(&unresolved).unwrap();
+    legacy.as_object_mut().unwrap().remove("creationError");
+    assert!(serde_json::from_value::<ai_deck::types::Deployment>(legacy)
+        .unwrap()
+        .creation_error
+        .is_none());
+
+    // Clearing still needs the existing delay, exact name and a fresh absent provider listing.
+    assert!(f
+        .core
+        .confirm_absent_creation(&d.id, &d.pod_name)
+        .await
+        .is_err());
+    f.core
+        .store
+        .update(|s| {
+            s.deployments[0].created_at = now() - 125;
+            Ok(())
+        })
+        .unwrap();
+    assert!(f
+        .core
+        .confirm_absent_creation(&d.id, "wrong-name")
+        .await
+        .is_err());
+    f.core
+        .confirm_absent_creation(&d.id, &d.pod_name)
+        .await
+        .unwrap();
+    let resolved = f.core.deployment(&d.id).unwrap();
+    assert_eq!(resolved.stage, DeploymentStage::Terminated);
+    assert_eq!(
+        serde_json::to_value(resolved.creation_error.as_ref().unwrap()).unwrap(),
+        error
+    );
+    assert_eq!(f.provider.creates.load(Ordering::SeqCst), 1);
+    assert_eq!(f.provider.deletes.load(Ordering::SeqCst), 0);
 }
 #[tokio::test]
 async fn lost_delete_response_is_not_proof_of_failure_or_success() {

@@ -112,6 +112,7 @@ impl AppCore {
             retained_storage_monthly_usd: None,
             credential_ref,
             failure_reason: None,
+            creation_error: None,
             message: "Validated; preparing the owned deployment record.".into(),
             cleanup_due_at: None,
         };
@@ -158,6 +159,11 @@ impl AppCore {
                 }
             }
             Err(error) => {
+                self.store.update(|s| {
+                    let d = s.deployments.iter_mut().find(|d| d.id == id).unwrap();
+                    d.creation_error = Some(error.clone());
+                    Ok(())
+                })?;
                 self.stage(
                     &id,
                     DeploymentStage::ReconciliationRequired,

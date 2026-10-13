@@ -24,7 +24,11 @@ export type Deployment = { provider: ProviderId, id: string, podName: string, po
 /**
  * None means a legacy record whose startup history is unknown.
  */
-startupCompleted: boolean | null, hourlyUsd: number, budgetUsd: number, gpuType: string, gpuCount: number, dataCenterId: string, networkVolumeId: string | null, retainedStorageMonthlyUsd: number | null, credentialRef: string, failureReason: string | null, message: string, cleanupDueAt: number | null, };
+startupCompleted: boolean | null, hourlyUsd: number, budgetUsd: number, gpuType: string, gpuCount: number, dataCenterId: string, networkVolumeId: string | null, retainedStorageMonthlyUsd: number | null, credentialRef: string, failureReason: string | null,
+/**
+ * Sanitized provider error, retained independently of reconciliation messages.
+ */
+creationError: AppError | null, message: string, cleanupDueAt: number | null, };
 
 export type Session = { id: string, name: string, projectId: string, projectPath: string, cli: CliKind, cliVersion: string, deploymentId: string, profileId: string, profileVersion: number, model: string, status: SessionStatus, createdAt: number, endedAt: number | null, conversationId: string | null, configDirectory: string, unverifiedCombination: boolean, exitCode: number | null, };
 

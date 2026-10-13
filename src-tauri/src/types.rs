@@ -123,6 +123,9 @@ pub struct Deployment {
     pub credential_ref: String,
     #[serde(default)]
     pub failure_reason: Option<String>,
+    /// Sanitized provider error, retained independently of reconciliation messages.
+    #[serde(default)]
+    pub creation_error: Option<crate::error::AppError>,
     pub message: String,
     pub cleanup_due_at: Option<u32>,
 }

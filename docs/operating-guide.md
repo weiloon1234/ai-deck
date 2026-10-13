@@ -69,7 +69,7 @@ Maximum lifetime and budget controls are local best-effort timers. App sleep, lo
 
 ## Recovery
 
-- **Unconfirmed creation:** Never create a replacement immediately. Reconcile. The app persists its unique ownership markers before the request and can find a Pod whose response was lost. If none is visible after at least two minutes, inspect the console and enter the exact saved Pod name in “Resolve an absent creation.” Late resources are still detected on later reconciliation.
+- **Unconfirmed creation:** Never create a replacement immediately. Reconcile searches Runpod again and may leave the status unchanged if no owned Pod is visible; it does not resend creation. The app persists its unique ownership markers before the request and can find a Pod whose response was lost. New failed requests also retain their sanitized original error across reconciliation, Finish and restart, and include it in exported diagnostics. Errors already lost by earlier app versions cannot be reconstructed. If no matching Pod is visible after at least two minutes, inspect the console, open **Deployment details and recovery → Resolve an absent creation**, enter the exact saved Pod name and choose **Verify absence**. Finish alone cannot confirm cleanup for a request that never returned a Pod ID. Late resources are still detected on later reconciliation.
 - **Ownership mismatch:** Automatic deletion is refused. Inspect the saved Pod identity and account in the console. Never remove unrelated resources to clear the app warning.
 - **Lost deletion response:** Reconcile. A successful DELETE response alone is insufficient; the app confirms that every tracked Pod is absent.
 - **Authentication or wrong model:** New connected launches are blocked. Fatal readiness failures trigger cleanup. Inspect the preserved failure reason and model profile before recreating compute.
@@ -93,4 +93,4 @@ AI Deck retains the original installed-app identity for compatibility with saved
 
 Management and inference credentials use the Keychain service `com.runpoddeck.desktop`. State stores references only. The model container receives its inference credential and, when needed, the Hub secret reference; it never receives the Runpod management key.
 
-**Export diagnostics** includes an explicit allowlist of deployment status, identities, profile fingerprints and timestamps. It excludes credentials, process environment, project paths, and terminal output. Raw CLI transcripts are not included. Avoid separately sharing upstream container logs without reviewing them.
+**Export diagnostics** includes an explicit allowlist of deployment status, identities, profile fingerprints, timestamps, startup failure reasons and sanitized original creation errors. It excludes credentials, raw provider bodies, process environment, project paths, and terminal output. Raw CLI transcripts are not included. Avoid separately sharing upstream container logs without reviewing them.
