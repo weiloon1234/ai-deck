@@ -100,7 +100,7 @@ async fn adapters_keep_secrets_out_of_files_and_arguments_and_preserve_local_pat
     }
 }
 #[test]
-fn inherited_environment_is_an_allowlist_and_new_cli_versions_are_not_trusted() {
+fn inherited_environment_is_an_allowlist() {
     let allowed: HashSet<_> = [
         "PATH",
         "HOME",
@@ -119,22 +119,6 @@ fn inherited_environment_is_an_allowlist_and_new_cli_versions_are_not_trusted() 
     assert!(cli_adapters::controlled_environment()
         .keys()
         .all(|key| allowed.contains(key.as_str())));
-    assert!(cli_adapters::assert_known_launcher(&CliKind::Codex, "codex-cli 0.160.0").is_ok());
-    assert!(
-        cli_adapters::assert_known_launcher(&CliKind::Codex, "codex-cli 0.162.0-alpha.17.2")
-            .is_ok()
-    );
-    assert!(cli_adapters::assert_known_launcher(&CliKind::Codex, "codex-cli 0.160.1").is_err());
-    let error =
-        cli_adapters::assert_known_launcher(&CliKind::Codex, "codex-cli 0.162.0-alpha.17.3")
-            .unwrap_err();
-    assert_eq!(error.code, "cli_version_unverified");
-    assert!(error.message.contains("0.162.0-alpha.17.3"));
-    assert!(error.recovery.contains("0.162.0-alpha.17.2"));
-    assert!(cli_adapters::assert_known_launcher(&CliKind::Claude, "2.1.289 (Claude Code)").is_ok());
-    assert!(
-        cli_adapters::assert_known_launcher(&CliKind::Claude, "2.1.290 (Claude Code)").is_err()
-    );
 }
 #[tokio::test]
 async fn no_route_or_unavailable_original_binding_cannot_launch_or_resume() {
@@ -179,7 +163,7 @@ async fn two_fixture_clis_keep_independent_projects_history_capacity_and_resume_
     let id = f.ready().await;
     f.core.enable(&id).await.unwrap();
     let executable = f.directory.path().join("fixture cli");
-    std::fs::write(&executable, "#!/bin/sh\nif [ \"$1\" = '--version' ]; then printf 'codex-cli 0.160.0\\n'; exit 0; fi\nprintf 'CWD:%s\\nSTATE:%s\\nTOKEN:%s\\n' \"$PWD\" \"$CODEX_HOME\" \"$RUNPOD_DECK_INFERENCE_TOKEN\"\nwhile read -r value; do printf 'APPROVED:%s\\n' \"$value\"; done\n").unwrap();
+    std::fs::write(&executable, "#!/bin/sh\nif [ \"$1\" = '--version' ]; then printf 'codex-cli 0.161.0\\n'; exit 0; fi\nprintf 'CWD:%s\\nSTATE:%s\\nTOKEN:%s\\n' \"$PWD\" \"$CODEX_HOME\" \"$RUNPOD_DECK_INFERENCE_TOKEN\"\nwhile read -r value; do printf 'APPROVED:%s\\n' \"$value\"; done\n").unwrap();
     std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
     let a = f.directory.path().join("project A 日本語");
     let b = f.directory.path().join("project B");
@@ -211,6 +195,12 @@ async fn two_fixture_clis_keep_independent_projects_history_capacity_and_resume_
         name: project.into(),
         allow_unverified: true,
     };
+    let mut unacknowledged = request("a");
+    unacknowledged.allow_unverified = false;
+    assert_eq!(
+        f.core.launch(unacknowledged).await.unwrap_err().code,
+        "compatibility_unverified"
+    );
     let first = f.core.launch(request("a")).await.unwrap();
     let second = f.core.launch(request("b")).await.unwrap();
     assert_eq!(
@@ -239,6 +229,9 @@ async fn two_fixture_clis_keep_independent_projects_history_capacity_and_resume_
         }
     }
     let sessions = f.core.store.read().unwrap().sessions;
+    assert!(sessions
+        .iter()
+        .all(|s| s.cli_version == "codex-cli 0.161.0" && s.unverified_combination));
     assert_ne!(sessions[0].config_directory, sessions[1].config_directory);
     f.core.close_session(&first).unwrap();
     f.core.close_session(&second).unwrap();

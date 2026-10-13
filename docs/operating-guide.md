@@ -7,7 +7,7 @@ To add more models, open **Models**, paste a Hugging Face model URL, and choose 
 No cloud resources or paid inference were used to develop this build. You control the first paid experiment.
 
 1. Open **Setup → Cloud provider** and select **Runpod** for a cloud test. Add its management key; it is stored in a separate Mac Keychain entry from GPUtw. The frontend clears the input after submission. **Check read access** checks provider information without creating compute.
-2. Confirm the detected Codex / Claude paths. The app checks exact versions and refuses unknown launcher versions rather than weakening isolation. It does not install or update either CLI.
+2. Confirm the detected Codex / Claude paths. You can try any installed version; the app records the version without an exact-version allowlist. Isolation flags remain enabled, so an incompatible CLI may fail. The app does not install or update either CLI.
 3. Set a total experiment budget and a maximum Pod lifetime. Leave the hourly limit at or below USD 10. Saving smaller limits can shorten an active Pod's deadline; larger values never extend that deadline. The total is cumulative across the app's saved deployment history; increase it deliberately for additional experiments. Storage and provider billing differences are not included in a guaranteed cap.
 4. Read the offline cleanup limitation. When you are ready, acknowledge it and enable paid provisioning. This setting alone does not create compute.
 5. Add a **disposable local project** in Projects. Keep real databases and important working files out of initial coding tests.

@@ -2,9 +2,26 @@
 
 Host: Apple Silicon Mac, macOS 26.6.2. Implementation work: 5–6 October 2026; release-readiness review: 8 October 2026; provider assessment/refactor: 10 October 2026. **No Runpod or GPUtw compute, retained storage, model downloads or paid inference were created by these checks.**
 
-The latest **13 October 2026** Codex compatibility checks passed: generated-contract drift, production frontend, Rust formatting/Clippy and **106 regular tests** (61 Rust, 19 Python, 26 Vue). Four optional Rust probes are ignored by the regular suite; the two installed-Codex probes also passed separately. Earlier checks and their limits are preserved below.
+The latest **13 October 2026** owner-directed CLI trial changes passed generated-contract drift, production frontend, Rust formatting/Clippy and **107 regular tests** (62 Rust, 19 Python, 26 Vue). Four optional Rust probes are ignored by the regular suite and were not rerun for this change. Earlier installed-CLI checks and their limits are preserved below.
+
+## Owner-directed CLI trials — 13 October 2026
+
+The owner showed a subsequent version-blocking error for `codex-cli 0.161.0` and explicitly requested trial-and-error. Removed the exact-version allowlist and its calls from model analysis, session launch and resume. Executable/version discovery, controlled environments, isolation flags, subscription-login selection, process cleanup and cloud spending/ownership checks remain. Compatibility evidence still records the actual CLI version; unknown versions are not automatically marked validated. Candidate session tests retain the existing acknowledgement rather than requiring an installed-version audit.
+
+Updated Setup, README, operating/model guidance and scoped CLI agent instructions to reflect the owner's decision. Optional installed-CLI probes now report the discovered version and can be selected independently; they are not prerequisites for trying the app.
+
+| Check | Result and limits |
+| --- | --- |
+| `CARGO_NET_OFFLINE=true npm run check` | Passed: generated drift, Vue/TypeScript build, Rust formatting and Clippy with warnings denied. |
+| `CARGO_NET_OFFLINE=true npm test` | Passed: 62 Rust, 19 Python and 26 Vue tests; four opt-in probes ignored. A fake Codex reporting `0.161.0` now reaches structured analysis, and the existing two-session fixture launches/resumes that formerly blocked version while preserving isolation, version recording and the candidate acknowledgement. These are fixture results, not validation of the owner's installed binary. |
+| `CARGO_NET_OFFLINE=true npm run tauri -- build --bundles app` and `codesign --verify --deep --strict` | Passed. Rebuilt and verified the arm64 app with the existing identifier and ad-hoc signature. Replace the previously installed copy to use the new behavior. The app was not opened against owner state; no Developer ID signing/notarization was performed. |
+| Documentation and diff | Updated local link targets resolve and `git diff --check` passes. |
+
+No installed-CLI compatibility audit, real subscription analysis or paid cloud operation was run. Tests use disposable state and fake executables/providers; no owner credentials or saved application state were used. A focused manual simplification pass removed the obsolete gate instead of retaining a no-op check or adding another setting. Dependencies, lockfiles, generated contracts, `.gitignore` and `.gitattributes` are unchanged. The repository guidance now preserves this trial policy for later changes.
 
 ## Codex version compatibility — 13 October 2026
+
+Historical results: the exact-version gate described in this section was subsequently removed at the owner's request, as recorded above.
 
 The owner's Models screenshot showed analysis blocked by the CLI version gate. The installed Codex reports `codex-cli 0.162.0-alpha.17.2`, while the gate previously accepted only `codex-cli 0.160.0`. Checked the installed help and [official CLI reference](https://learn.chatgpt.com/docs/cli/reference), then ran the existing installed-binary probes before retaining the new exact version in the allowlist. Launcher and analyzer isolation flags are unchanged. Future versions remain blocked, and errors now show the detected version and accepted versions from the native gate. Setup copy no longer duplicates that version list.
 

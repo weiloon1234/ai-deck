@@ -1,5 +1,5 @@
 use crate::{
-    cli_adapters::{assert_known_launcher, controlled_environment, discover},
+    cli_adapters::{controlled_environment, discover},
     cloud_provider::Hardware,
     error::{AppError, Result},
     hugging_face_client::HubModel,
@@ -50,7 +50,6 @@ impl ModelAnalyzer for CodexModelAnalyzer {
         tokio::task::spawn_blocking(move || {
             let installation = discover(CliKind::Codex, input.codex_path.as_deref());
             let version = installation.version.ok_or_else(sign_in_error)?;
-            assert_known_launcher(&CliKind::Codex, &version)?;
             let executable = PathBuf::from(installation.path.ok_or_else(sign_in_error)?);
             let mut env = controlled_environment();
             // Keep only the normal authentication home; no API keys/provider endpoints are inherited.
@@ -381,6 +380,9 @@ mod tests {
 import sys, os, json, time
 from pathlib import Path
 root = Path(__file__).parent
+if '--version' in sys.argv:
+    print('codex-cli 0.161.0')
+    sys.exit(0)
 if 'login' in sys.argv:
     print('Logged in using API key: fake' if {mode:?} == 'api' else 'Logged in using ChatGPT', file=sys.stderr)
     sys.exit(0)
@@ -415,6 +417,21 @@ Path(args[args.index('--output-last-message') + 1]).write_text('invalid' if {mod
         ]);
         (temp, executable, input, env)
     }
+    #[tokio::test]
+    async fn subscription_analyzer_attempts_an_installed_version_without_an_allowlist() {
+        let (temp, executable, mut input, _) = fixture("ok");
+        input.codex_path = Some(executable.to_string_lossy().into());
+        let directory = input.directory.clone();
+        let (analysis, version) = CodexModelAnalyzer
+            .analyze(input, Arc::new(AtomicBool::new(false)))
+            .await
+            .unwrap();
+        assert_eq!(version, "codex-cli 0.161.0");
+        assert_eq!(analysis.recommended_context_tokens, 8192);
+        assert!(temp.path().join("invoked").exists());
+        assert_eq!(fs::read_dir(directory).unwrap().count(), 0);
+    }
+
     #[test]
     fn subscription_analyzer_uses_structured_output_and_leaves_normal_auth_untouched() {
         let (temp, executable, input, env) = fixture("ok");

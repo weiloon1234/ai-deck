@@ -46,7 +46,6 @@ impl AppCore {
         let version = installation
             .version
             .ok_or_else(|| AppError::invalid(installation.message))?;
-        cli_adapters::assert_known_launcher(&request.cli, &version)?;
         let validated =
             deployment
                 .profile
@@ -122,7 +121,6 @@ impl AppCore {
         let version = installation
             .version
             .ok_or_else(|| AppError::invalid(installation.message))?;
-        cli_adapters::assert_known_launcher(&session.cli, &version)?;
         if !deployment
             .profile
             .is_validated(&session.cli, &version, &deployment.gpu_type)

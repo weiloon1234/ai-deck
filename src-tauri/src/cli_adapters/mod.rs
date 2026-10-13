@@ -136,21 +136,3 @@ pub fn version(path: &Path) -> Result<String> {
         }
     }
 }
-
-pub fn assert_known_launcher(cli: &CliKind, version: &str) -> Result<()> {
-    let (name, checked): (&str, &[&str]) = match cli {
-        CliKind::Codex => (
-            "Codex",
-            &["codex-cli 0.160.0", "codex-cli 0.162.0-alpha.17.2"],
-        ),
-        CliKind::Claude => ("Claude Code", &["2.1.289 (Claude Code)"]),
-    };
-    if !checked.contains(&version) {
-        return Err(AppError::new(
-            "cli_version_unverified",
-            format!("{name} version {version:?} has not been checked for the adapter's isolation flags."),
-            format!("Checked versions: {}. Select an existing checked executable in Setup, or validate this version before updating the adapter.", checked.join(", ")),
-        ));
-    }
-    Ok(())
-}

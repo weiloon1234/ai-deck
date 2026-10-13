@@ -19,13 +19,18 @@ use support::*;
 
 #[cfg(unix)]
 #[test]
-#[ignore = "requires installed pinned Codex and loopback permission; no subscription or paid endpoint"]
+#[ignore = "requires installed Codex and loopback permission; no subscription or paid endpoint"]
 fn installed_codex_accepts_analysis_schema_and_restricts_tools() {
     use ai_deck::codex_model_analyzer::{analysis_arguments, output_schema};
     use std::os::unix::process::CommandExt;
     let installation = cli_adapters::discover(CliKind::Codex, None);
-    cli_adapters::assert_known_launcher(&CliKind::Codex, installation.version.as_deref().unwrap())
-        .unwrap();
+    println!(
+        "Codex analysis probe: {}",
+        installation
+            .version
+            .as_deref()
+            .expect("Codex must be installed")
+    );
     let root = tempfile::tempdir().unwrap();
     let home = root.path().join("disposable-home");
     std::fs::create_dir_all(home.join(".codex")).unwrap();
@@ -139,7 +144,7 @@ fn installed_codex_accepts_analysis_schema_and_restricts_tools() {
             assert!(body["tools"]
                 .as_array()
                 .is_none_or(|tools| tools.is_empty()));
-            // Checked Codex versions also send tool declarations as input items.
+            // Some Codex builds also send tool declarations as input items.
             for namespace in body["input"]
                 .as_array()
                 .into_iter()
@@ -171,14 +176,14 @@ fn installed_codex_accepts_analysis_schema_and_restricts_tools() {
 
 #[cfg(unix)]
 #[tokio::test]
-#[ignore = "requires installed checked Codex and loopback permission; never calls a paid endpoint"]
+#[ignore = "requires installed Codex and loopback permission; never calls a paid endpoint"]
 async fn installed_codex_routes_invalid_credentials_only_to_the_fixture_gateway() {
     assert_installed_cli_routes_only_to_fixture_gateway(CliKind::Codex).await;
 }
 
 #[cfg(unix)]
 #[tokio::test]
-#[ignore = "requires installed checked Claude and loopback permission; never calls a paid endpoint"]
+#[ignore = "requires installed Claude and loopback permission; never calls a paid endpoint"]
 async fn installed_claude_routes_invalid_credentials_only_to_the_fixture_gateway() {
     assert_installed_cli_routes_only_to_fixture_gateway(CliKind::Claude).await;
 }
@@ -190,14 +195,13 @@ async fn assert_installed_cli_routes_only_to_fixture_gateway(cli: CliKind) {
     let id = f.ready().await;
     let d = f.core.deployment(&id).unwrap();
     let installation = cli_adapters::discover(cli.clone(), None);
-    cli_adapters::assert_known_launcher(
-        &cli,
+    println!(
+        "{cli:?} routing probe: {}",
         installation
             .version
             .as_deref()
-            .expect("CLI must be installed"),
-    )
-    .unwrap();
+            .expect("CLI must be installed")
+    );
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());

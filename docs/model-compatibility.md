@@ -13,7 +13,7 @@ Exact revisions, digest, parser flags, context limits, sampling values and hardw
 | GPT OSS 20B | One H100 80GB | First Codex experiment; native MXFP4/Harmony path | Untested |
 | Qwen3 Coder 30B | One H100 80GB | Second model on the shared vLLM runtime | Untested |
 
-Both profiles propose a 16k context and two sessions. Neither capacity nor tool reliability has been measured. Both expose an experimental Claude option; this is not an Anthropic-supported configuration. The exact installed launcher versions are checked in the native adapters and displayed in Setup.
+Both profiles propose a 16k context and two sessions. Neither capacity nor tool reliability has been measured. Both expose an experimental Claude option; this is not an Anthropic-supported configuration. Installed launcher versions are detected and displayed in Setup without an exact-version allowlist. Compatibility evidence still matches the exact version used in a test.
 
 ## First live experiment
 

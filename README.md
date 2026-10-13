@@ -161,14 +161,14 @@ If the checkout is moved and Tauri reports generated files under its previous ab
 
 Regular tests use fake cloud services, disposable directories, local pseudo-terminals and loopback HTTP servers. They do not create Runpod resources, download model weights or invoke paid inference. Some environments require permission for local listeners and child processes.
 
-Optional installed-CLI probes are ignored by the regular suite. They use fake credentials and a localhost rejection server, and require an exact checked installed version. Select the CLI being validated; its allowlist lives in [`assert_known_launcher`](src-tauri/src/cli_adapters/mod.rs):
+Optional installed-CLI probes are ignored by the regular suite. They use fake credentials and a localhost rejection server. Select the CLI being validated; each probe reports the detected version:
 
 ```sh
 cargo test --manifest-path src-tauri/Cargo.toml --test installed_cli_smoke installed_codex -- --ignored --nocapture
 cargo test --manifest-path src-tauri/Cargo.toml --test installed_cli_smoke installed_claude -- --ignored --nocapture
 ```
 
-A rejection probe validates routing and arguments, not successful model compatibility. Unchecked versions are blocked with the detected and checked versions shown in the error; choose an existing checked executable in Setup or validate the newer version before updating the adapter. Other opt-in probes and their results are described in [model import](docs/model-import.md) and [local validation](docs/local-validation.md).
+A rejection probe validates routing and arguments, not successful model compatibility. You can try any installed CLI version without an exact-version allowlist. Detection records the version; launch and analysis retain their isolation flags. An unsupported flag can cause the CLI to fail, and untested model combinations still use the existing candidate-test acknowledgement. The app does not install or upgrade your CLIs. Other opt-in probes and their results are described in [model import](docs/model-import.md) and [local validation](docs/local-validation.md).
 
 ## First owner-led live test
 
