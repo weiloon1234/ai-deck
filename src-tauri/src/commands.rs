@@ -1,8 +1,7 @@
 use crate::{
     app_core::AppCore,
     cli_adapters,
-    cloud_provider::Hardware,
-    credential_store::RUNPOD_KEY,
+    cloud_provider::{Hardware, ProviderId},
     deployment_service::validate_policy,
     error::{AppError, Result},
     model_catalog,
@@ -29,45 +28,33 @@ pub fn snapshot(core: Core<'_>) -> Result<AppSnapshot> {
 }
 #[tauri::command]
 pub async fn save_runpod_key(core: Core<'_>, key: String) -> Result<()> {
-    let _guard = core.operations.lock().await;
-    let key = key.trim();
-    if key.len() < 16 || key.len() > 1024 || key.chars().any(char::is_whitespace) {
-        return Err(AppError::invalid("Enter a valid Runpod API key."));
-    }
-    if core
-        .store
-        .read()?
-        .deployments
-        .iter()
-        .any(|d| !d.stage.is_terminal())
-    {
-        return Err(AppError::invalid("Finish existing deployments before replacing the management key, so cleanup keeps the same account."));
-    }
-    core.credentials.set(RUNPOD_KEY, key)?;
-    core.changed();
-    Ok(())
+    core.save_provider_key(ProviderId::Runpod, &key).await
 }
 #[tauri::command]
 pub async fn remove_runpod_key(core: Core<'_>) -> Result<()> {
-    let _guard = core.operations.lock().await;
-    if core
-        .store
-        .read()?
-        .deployments
-        .iter()
-        .any(|d| !d.stage.is_terminal())
-    {
-        return Err(AppError::invalid(
-            "Finish existing deployments before removing the management key.",
-        ));
-    }
-    core.credentials.delete(RUNPOD_KEY)?;
-    core.changed();
-    Ok(())
+    core.remove_provider_key(ProviderId::Runpod).await
 }
 #[tauri::command]
-pub async fn save_settings(core: Core<'_>, settings: AppSettings) -> Result<()> {
+pub async fn save_provider_key(core: Core<'_>, provider: ProviderId, key: String) -> Result<()> {
+    core.save_provider_key(provider, &key).await
+}
+#[tauri::command]
+pub async fn remove_provider_key(core: Core<'_>, provider: ProviderId) -> Result<()> {
+    core.remove_provider_key(provider).await
+}
+#[tauri::command]
+pub async fn check_provider_connection(core: Core<'_>, provider: ProviderId) -> Result<()> {
+    core.check_provider_connection(provider).await
+}
+#[tauri::command]
+pub async fn select_provider(core: Core<'_>, provider: ProviderId) -> Result<()> {
+    core.select_provider(provider).await
+}
+#[tauri::command]
+pub async fn save_settings(core: Core<'_>, mut settings: AppSettings) -> Result<()> {
     let _guard = core.operations.lock().await;
+    // Provider selection has its own immediate-save command; an older form must not undo it.
+    settings.provider = core.store.read()?.settings.provider;
     validate_policy(&settings.policy)?;
     if settings
         .hugging_face_secret
@@ -173,8 +160,8 @@ pub fn remove_project(core: Core<'_>, id: String) -> Result<()> {
     Ok(())
 }
 #[tauri::command]
-pub async fn hardware(core: Core<'_>) -> Result<Hardware> {
-    core.provider.hardware().await
+pub async fn hardware(core: Core<'_>, provider: ProviderId) -> Result<Hardware> {
+    core.hardware_for(provider).await
 }
 #[tauri::command]
 pub async fn provision(core: Core<'_>, request: ProvisionRequest) -> Result<String> {
@@ -275,6 +262,8 @@ fn validated_external_url(url: &str) -> Result<reqwest::Url> {
         && parsed.port().is_none()
         && match parsed.host_str() {
             Some("console.runpod.io") => matches!(parsed.path(), "/pods" | "/user/settings"),
+            Some("gputw.ai") => parsed.path() == "/",
+            Some("docs.gputw.ai") => parsed.path() == "/zh-TW/docs/api-keys",
             Some("huggingface.co") => {
                 let parts: Vec<_> = parsed.path().trim_start_matches('/').split('/').collect();
                 match parts.as_slice() {
@@ -397,6 +386,8 @@ mod tests {
         for url in [
             "https://console.runpod.io/pods".to_owned(),
             "https://console.runpod.io/user/settings".to_owned(),
+            "https://gputw.ai/".to_owned(),
+            "https://docs.gputw.ai/zh-TW/docs/api-keys".to_owned(),
             "https://huggingface.co/fixture/coding-model".to_owned(),
             format!("https://huggingface.co/fixture/coding-model/blob/{REVISION}/config.json"),
         ] {
@@ -415,6 +406,9 @@ mod tests {
             "https://huggingface.co/fixture/coding-model?token=fake".to_owned(),
             "https://huggingface.co/fixture/coding-model#config".to_owned(),
             "https://console.runpod.io/account".to_owned(),
+            "https://gputw.ai.evil/".to_owned(),
+            "https://gputw.ai/api/instances/create".to_owned(),
+            "https://docs.gputw.ai/zh-TW/docs/api-keys?token=fake".to_owned(),
             "https://huggingface.co/fixture/coding-model/blob/main/config.json".to_owned(),
             format!("https://huggingface.co/fixture/coding-model/tree/{REVISION}/config.json"),
             format!("https://huggingface.co/fixture/coding-model/blob/{REVISION}/README.md"),

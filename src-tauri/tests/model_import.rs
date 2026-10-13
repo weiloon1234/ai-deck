@@ -181,6 +181,8 @@ async fn import_saves_profile_and_prices_reuses_cache_and_never_creates_compute(
     assert!(!result.reused);
     let state = f.core.store.read().unwrap();
     let model = &state.imported_models[0];
+    assert_eq!(model.provider, ai_deck::cloud_provider::ProviderId::Runpod);
+    assert_eq!(model.quotes[0].provider, model.provider);
     assert_eq!(model.metadata.parameter_count, Some(7_000_000_000));
     assert_eq!(model.metadata.license.as_deref(), Some("apache-2.0"));
     assert_eq!(model.quotes[0].hourly_usd, Some(3.0));
@@ -199,20 +201,51 @@ async fn import_saves_profile_and_prices_reuses_cache_and_never_creates_compute(
     assert_eq!(repeat.id, result.id);
     assert_eq!(hub.0.load(Ordering::SeqCst), 1);
     assert_eq!(analyzer.calls.load(Ordering::SeqCst), 1);
+    f.core
+        .select_provider(ai_deck::cloud_provider::ProviderId::Gputw)
+        .await
+        .unwrap();
     f.core.refresh_model_prices(&result.id).await.unwrap();
+    let refreshed = f.core.store.read().unwrap().imported_models.remove(0);
+    assert_eq!(
+        refreshed.provider,
+        ai_deck::cloud_provider::ProviderId::Runpod
+    );
+    assert_eq!(refreshed.quotes[0].provider, refreshed.provider);
+    assert_eq!(
+        f.core
+            .import_model_using(URL, true, &hub, &analyzer)
+            .await
+            .unwrap_err()
+            .code,
+        "provider_not_ready"
+    );
     assert_eq!(analyzer.calls.load(Ordering::SeqCst), 1);
     assert_eq!(f.provider.creates.load(Ordering::SeqCst), 0);
     assert_eq!(f.provider.deletes.load(Ordering::SeqCst), 0);
     assert!(f.core.store.read().unwrap().deployments.is_empty());
     // Open an independent copy as a real restart without releasing fixture resources prematurely.
     let copy = tempfile::tempdir().unwrap();
-    std::fs::copy(
-        f.core.store.directory().join("state.json"),
+    let mut legacy = serde_json::to_value(f.core.store.read().unwrap()).unwrap();
+    legacy["importedModels"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("provider");
+    legacy["importedModels"][0]["quotes"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("provider");
+    std::fs::write(
         copy.path().join("state.json"),
+        serde_json::to_vec(&legacy).unwrap(),
     )
     .unwrap();
     let reopened = StateStore::open(copy.path().into()).unwrap();
     assert_eq!(reopened.read().unwrap().imported_models[0].id, result.id);
+    assert_eq!(
+        reopened.read().unwrap().imported_models[0].provider,
+        ai_deck::cloud_provider::ProviderId::Runpod
+    );
 }
 #[tokio::test]
 async fn failed_refresh_preserves_saved_analysis_and_deployment_snapshots() {

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "runpod",
+    "name": "Runpod",
+    "accountUrl": "https://console.runpod.io/user/settings",
+    "keyDocsUrl": "https://console.runpod.io/user/settings",
+    "provisioningAvailable": true,
+    "limitations": []
+  },
+  {
+    "id": "gputw",
+    "name": "GPUtw.ai",
+    "accountUrl": "https://gputw.ai/",
+    "keyDocsUrl": "https://docs.gputw.ai/zh-TW/docs/api-keys",
+    "provisioningAvailable": false,
+    "limitations": [
+      "Confirm ownership markers or idempotency for recovery after a lost creation response.",
+      "Confirm authenticated startup readiness during long model downloads.",
+      "Confirm enforced workspace/Vault capacity, billing and compatible GPU profiles."
+    ]
+  }
+]

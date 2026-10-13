@@ -4,6 +4,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { AppError, AppSnapshot, CliInstallation, Hardware } from './contracts';
 import defaults from './defaults.json';
 import catalog from '../../model-catalog/catalog.json';
+import providers from './providers.json';
 
 const snapshot = ref<AppSnapshot | null>(null);
 const error = ref<AppError | null>(null);
@@ -69,6 +70,7 @@ export function useDeck() {
         state: { schemaVersion: 1, installationId: 'browser-preview', settings: defaults, projects: [], deployments: [], sessions: [], importedModels: [], enabledDeploymentId: null },
         catalog: catalog.profiles.map(model => ({ model, runtime: catalog.runtimes.find(r => r.id === model.runtimeId)!, fingerprint: 'Available in desktop diagnostics' })),
         runpodKeyConfigured: false, catalogError: null, credentialStoreError: null, hourlyCeilingUsd: defaults.policy.maxHourlyUsd, offlineExpiryVerified: false, appVersion: '0.1.0',
+        providers: providers.map(info => ({ info, keyConfigured: false, credentialStoreError: null })),
       } as AppSnapshot;
     }
     return () => { clearInterval(timer); listeners.forEach(unlisten => unlisten()); };

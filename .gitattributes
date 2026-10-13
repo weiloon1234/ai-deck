@@ -26,6 +26,7 @@
 # Keep generated files tracked and diffable; GitHub can collapse their diffs.
 /src/shared/contracts.ts linguist-generated=true
 /src/shared/defaults.json linguist-generated=true
+/src/shared/providers.json linguist-generated=true
 /model-catalog/schema.json linguist-generated=true
 /package-lock.json linguist-generated=true
 /src-tauri/Cargo.lock linguist-generated=true

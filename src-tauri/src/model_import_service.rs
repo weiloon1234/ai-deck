@@ -98,13 +98,15 @@ impl AppCore {
                 reused: true,
             });
         }
+        let provider_id = state.settings.provider;
+        let provider = self.providers.get(provider_id)?;
         if existing.is_none() && state.imported_models.len() >= 100 {
             return Err(AppError::invalid("The local library holds up to 100 imported models. Remove an unused suggestion first."));
         }
         self.import_progress("Reading Hugging Face model details…");
         let metadata = cancellable(hub.model(&source), &self.model_imports.cancelled).await?;
         self.import_progress("Checking Runpod hardware and current GPU prices…");
-        let hardware = cancellable(self.provider.hardware(), &self.model_imports.cancelled).await?;
+        let hardware = cancellable(provider.hardware(), &self.model_imports.cancelled).await?;
         let prices_checked_at = now();
         let runtime = builtin_catalog()?
             .first()
@@ -129,6 +131,7 @@ impl AppCore {
         analysis.validate(&hardware)?;
         check_cancelled(&self.model_imports.cancelled)?;
         let mut record = ImportedModel {
+            provider: provider_id,
             id: format!("hf-{:x}", Sha256::digest(source.url().as_bytes())),
             source_url: source.url(),
             quotes: quotes(&analysis, &hardware),
@@ -163,17 +166,20 @@ impl AppCore {
             .try_lock()
             .map_err(|_| import_busy())?;
         self.model_imports.cancelled.store(false, Ordering::Release);
-        if !self
+        let provider_id = self
             .store
             .read()?
             .imported_models
             .iter()
-            .any(|m| m.id == id)
-        {
-            return Err(AppError::invalid("Saved model not found."));
-        }
+            .find(|m| m.id == id)
+            .map(|m| m.provider)
+            .ok_or_else(|| AppError::invalid("Saved model not found."))?;
         self.import_progress("Refreshing Runpod prices without another Codex analysis…");
-        let hardware = cancellable(self.provider.hardware(), &self.model_imports.cancelled).await?;
+        let hardware = cancellable(
+            self.providers.get(provider_id)?.hardware(),
+            &self.model_imports.cancelled,
+        )
+        .await?;
         check_cancelled(&self.model_imports.cancelled)?;
         self.store.update(|s| {
             let record = s

@@ -17,6 +17,7 @@ impl AppCore {
     }
     pub(crate) async fn ensure_ready_locked(&self, id: &str) -> Result<Deployment> {
         let deployment = self.deployment(id)?;
+        let provider = self.providers.get(deployment.provider)?;
         if deployment.stage != DeploymentStage::Ready
             || deployment.intended_action == "terminate"
             || now() >= deployment.deadline_at
@@ -32,10 +33,9 @@ impl AppCore {
             .pod_ids
             .first()
             .ok_or_else(|| AppError::invalid("Deployment has no Pod."))?;
-        match self.provider.get(pod_id).await {
+        match provider.get(pod_id).await {
             Ok(Some(pod))
-                if self.provider.owns(&deployment, &owner, &pod)
-                    && pod.desired_status == "RUNNING" => {}
+                if provider.owns(&deployment, &owner, &pod) && pod.desired_status == "RUNNING" => {}
             Ok(None) => {
                 self.stop_deployment_sessions(id)?;
                 self.confirm_terminated(id, "Runpod confirmed the enabled Pod is absent.")?;

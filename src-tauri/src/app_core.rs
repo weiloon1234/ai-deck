@@ -1,5 +1,5 @@
 use crate::{
-    cloud_provider::CloudProvider,
+    cloud_provider::{CloudProviders, ProviderId},
     credential_store::CredentialStore,
     error::{AppError, Result},
     model_catalog::{self, ResolvedProfile},
@@ -14,7 +14,7 @@ pub type Notify = Arc<dyn Fn(&str, serde_json::Value) + Send + Sync>;
 pub struct AppCore {
     pub store: Arc<StateStore>,
     pub credentials: Arc<dyn CredentialStore>,
-    pub provider: Arc<dyn CloudProvider>,
+    pub providers: CloudProviders,
     pub runtime: Arc<dyn RuntimeApi>,
     pub terminals: Arc<TerminalManager>,
     pub operations: tokio::sync::Mutex<()>,
@@ -62,12 +62,16 @@ impl AppCore {
                 (vec![], Some(error))
             }
         };
-        let (runpod_key_configured, credential_store_error) =
-            match self.credentials.get(crate::credential_store::RUNPOD_KEY) {
-                Ok(key) => (Some(key.is_some()), None),
-                Err(error) => (None, Some(error)),
-            };
+        let providers = self.provider_statuses();
+        let runpod_key_configured = providers
+            .iter()
+            .find(|p| p.info.id == ProviderId::Runpod)
+            .and_then(|p| p.key_configured);
+        let credential_store_error = providers
+            .iter()
+            .find_map(|p| p.credential_store_error.clone());
         Ok(AppSnapshot {
+            providers,
             state,
             catalog,
             runpod_key_configured,

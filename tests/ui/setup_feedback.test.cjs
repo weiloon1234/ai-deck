@@ -2,16 +2,18 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const vue = require('vue');
 const defaults = require('../../src/shared/defaults.json');
+const providers = require('../../src/shared/providers.json');
 const { component, find, text } = require('./component_fixture.cjs');
 
 function fixture() {
   const calls = [];
   const deck = {
     calls, state: vue.ref({ settings: structuredClone(defaults) }),
-    snapshot: vue.ref({ runpodKeyConfigured: false }), busy: vue.ref(null), installations: vue.ref([]),
+    snapshot: vue.ref({ runpodKeyConfigured: false, providers: providers.map(info => ({ info, keyConfigured: false, credentialStoreError: null })) }), busy: vue.ref(null), installations: vue.ref([]),
     async call(command, args) {
       calls.push({ command, args });
       if (command === 'save_settings') deck.state.value.settings = structuredClone(args.settings);
+      if (command === 'select_provider') deck.state.value.settings.provider = args.provider;
     },
     async perform(_label, action) { return action(); },
   };
@@ -34,6 +36,63 @@ test('setup tracks unsaved edits, saves normalized settings and clears stale suc
   setup.form.value.claudePath = '/fixture/claude';
   assert.equal(setup.saved.value, false);
   assert.equal(setup.dirty.value, true);
+});
+
+test('provider selection is saved immediately, clears key draft and preserves other unsaved settings', async () => {
+  const deck = fixture();
+  const setup = component('src/features/setup/SetupView.vue', deck, false).setup({}, { expose() {} });
+  setup.key.value = 'fixture-runpod-key';
+  setup.form.value.codexPath = '/fixture/unsaved-codex';
+  const select = { value: 'gputw' };
+  await setup.selectProvider({ target: select });
+  await vue.nextTick();
+  assert.equal(deck.calls[0].command, 'select_provider');
+  assert.equal(deck.calls[0].args.provider, 'gputw');
+  assert.equal(setup.key.value, '');
+  assert.equal(setup.form.value.provider, 'gputw');
+  assert.equal(setup.form.value.codexPath, '/fixture/unsaved-codex');
+  assert.equal(setup.dirty.value, true);
+  setup.key.value = 'fixture-gputw-key';
+  await setup.saveKey();
+  assert.equal(deck.calls[1].command, 'save_provider_key');
+  assert.equal(deck.calls[1].args.provider, 'gputw');
+  assert.equal(setup.key.value, '');
+});
+
+test('GPUtw setup shows its key and read-only readiness limits, and read checks report only read access', async () => {
+  const deck = fixture();
+  deck.state.value.settings.provider = 'gputw';
+  deck.snapshot.value.providers[1].keyConfigured = true;
+  const render = component('src/features/setup/SetupView.vue', deck).setup({}, {});
+  const tree = render({}, []);
+  assert.match(text(tree), /GPUtw.ai API key/);
+  assert.match(text(tree), /Provisioning is pending/);
+  assert.match(text(tree), /lost creation response/);
+  const setup = component('src/features/setup/SetupView.vue', deck, false).setup({}, { expose() {} });
+  await setup.checkConnection();
+  assert.equal(deck.calls[0].command, 'check_provider_connection');
+  assert.equal(deck.calls[0].args.provider, 'gputw');
+  assert.match(setup.connectionNotice.value, /instances:read/);
+  assert.match(setup.connectionNotice.value, /Provisioning is still unavailable/);
+  await setup.removeKey();
+  assert.equal(deck.calls[1].command, 'remove_provider_key');
+  assert.equal(deck.calls[1].args.provider, 'gputw');
+  assert.equal(setup.connectionNotice.value, '');
+});
+
+test('failed provider selection restores the control and failed key/check operations never claim success', async () => {
+  const deck = fixture();
+  deck.call = async () => { throw Error('Fixture failure'); };
+  deck.perform = async (_label, action) => { try { return await action(); } catch {} };
+  const setup = component('src/features/setup/SetupView.vue', deck, false).setup({}, { expose() {} });
+  const select = { value: 'gputw' };
+  await setup.selectProvider({ target: select });
+  assert.equal(select.value, 'runpod');
+  setup.key.value = 'fixture-key';
+  await setup.saveKey(); await setup.checkConnection();
+  assert.equal(setup.key.value, '');
+  assert.equal(setup.keyNotice.value, '');
+  assert.equal(setup.connectionNotice.value, '');
 });
 
 test('a failed settings save retains the draft and does not claim success', async () => {

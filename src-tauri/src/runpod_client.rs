@@ -1,5 +1,5 @@
 use crate::{
-    cloud_provider::{CloudProvider, CloudResource, Hardware},
+    cloud_provider::{CloudProvider, CloudResource, Hardware, ProviderId},
     credential_store::{CredentialStore, RUNPOD_KEY},
     error::{AppError, Result},
     http_client::{decode, http_client, protocol_error, resource_id, status_error},
@@ -120,6 +120,7 @@ impl CloudProvider for RunpodClient {
         let network_volumes =
             decode(self.request(Method::GET, "/networkvolumes", None).await?).await?;
         Ok(Hardware {
+            provider: ProviderId::Runpod,
             gpus,
             data_centers,
             network_volumes,
@@ -129,7 +130,8 @@ impl CloudProvider for RunpodClient {
 
 // Ownership keys are a persistent protocol shared with already-running Pods.
 pub fn owns(d: &Deployment, owner: &str, pod: &CloudResource) -> bool {
-    pod.name == d.pod_name
+    d.provider == ProviderId::Runpod
+        && pod.name == d.pod_name
         && pod.image_name == d.profile.runtime.image
         && pod.env.get("RUNPOD_DECK_OWNER").map(String::as_str) == Some(owner)
         && pod.env.get("RUNPOD_DECK_DEPLOYMENT").map(String::as_str) == Some(d.id.as_str())
@@ -142,6 +144,11 @@ pub fn create_payload(
     token: &str,
     hf_secret: Option<&str>,
 ) -> Result<Value> {
+    if d.provider != ProviderId::Runpod {
+        return Err(AppError::invalid(
+            "This deployment does not belong to Runpod.",
+        ));
+    }
     let p = &d.profile.model;
     let r = &d.profile.runtime;
     let config = json!({"repository":p.repository,"revision":p.revision,"inferencePort":r.inference_port,"statusPort":r.status_port,

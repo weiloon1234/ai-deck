@@ -8,18 +8,24 @@ pub mod deployment_reconciler;
 pub mod deployment_service;
 pub mod enabled_endpoint_service;
 pub mod error;
+pub mod gputw_client;
 pub mod http_client;
 pub mod hugging_face_client;
 pub mod model_analysis;
 pub mod model_catalog;
 pub mod model_import_service;
 mod process_tree;
+pub mod provider_service;
 pub mod runpod_client;
 pub mod runtime_client;
 pub mod session_service;
 pub mod state_store;
 pub mod terminal_process;
 pub mod types;
+
+#[cfg(test)]
+#[path = "../tests/support/http_fixture.rs"]
+mod http_fixture;
 
 use std::sync::{atomic::Ordering, Arc};
 use tauri::{Emitter, Manager};
@@ -34,7 +40,9 @@ pub fn run() {
             let handle = app.handle().clone();
             let core = Arc::new(app_core::AppCore {
                 store,
-                provider: Arc::new(runpod_client::RunpodClient::new(credentials.clone())?),
+                providers: cloud_provider::CloudProviders::new(Arc::new(
+                    runpod_client::RunpodClient::new(credentials.clone())?,
+                )),
                 runtime: Arc::new(runtime_client::RuntimeClient::new(credentials.clone())?),
                 credentials,
                 terminals: Arc::new(terminal_process::TerminalManager::default()),
@@ -57,6 +65,10 @@ pub fn run() {
             commands::snapshot,
             commands::save_runpod_key,
             commands::remove_runpod_key,
+            commands::save_provider_key,
+            commands::remove_provider_key,
+            commands::check_provider_connection,
+            commands::select_provider,
             commands::save_settings,
             commands::detect_clis,
             commands::choose_executable,

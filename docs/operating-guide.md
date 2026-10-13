@@ -6,7 +6,7 @@ To add more models, open **Models**, paste a Hugging Face model URL, and choose 
 
 No cloud resources or paid inference were used to develop this build. You control the first paid experiment.
 
-1. Open **Setup**. Add your Runpod management key; it is stored in this app's Mac Keychain entry. The frontend clears the input after submission.
+1. Open **Setup → Cloud provider** and select **Runpod** for a cloud test. Add its management key; it is stored in a separate Mac Keychain entry from GPUtw. The frontend clears the input after submission. **Check read access** checks provider information without creating compute.
 2. Confirm the detected Codex / Claude paths. The app checks exact versions and refuses unknown launcher versions rather than weakening isolation. It does not install or update either CLI.
 3. Set a total experiment budget and a maximum Pod lifetime. Leave the hourly limit at or below USD 10. Saving smaller limits can shorten an active Pod's deadline; larger values never extend that deadline. The total is cumulative across the app's saved deployment history; increase it deliberately for additional experiments. Storage and provider billing differences are not included in a guaranteed cap.
 4. Read the offline cleanup limitation. When you are ready, acknowledge it and enable paid provisioning. This setting alone does not create compute.
@@ -15,6 +15,8 @@ No cloud resources or paid inference were used to develop this build. You contro
 The recommended first candidate is GPT OSS 20B on one H100 80GB. Qwen3 Coder 30B uses the same image as the second candidate. Both require live compatibility validation. Start with temporary storage. Select a location from the current availability list; a nearby location such as Singapore is preferable when offered at a rate within your limit. No region or price is assumed to be available.
 
 ## Provision → Enable → Open CLI
+
+These steps currently use Runpod. GPUtw has its own setup flow below.
 
 1. Select a model in Models or Deployment. Review its limitations and version details.
 2. **Check availability**, select a currently available location, and optionally select an existing network volume in that location. The app never creates or deletes network volumes.
@@ -27,6 +29,18 @@ The recommended first candidate is GPT OSS 20B on one H100 80GB. Qwen3 Coder 30B
 Use the [cloud acceptance checklist](model-compatibility.md) to validate the first model. Do not mark support from a text response alone.
 
 ## Sessions and credentials
+
+Changing the provider in Setup saves immediately and affects new deployment preparation. Saved deployments, session routes and cleanup keep their original provider. You can change/remove a provider's key only after finishing that provider's active deployments; the other provider's key is unaffected.
+
+## GPUtw setup
+
+Choose **GPUtw.ai · setup only** in Setup, enter its API key and choose **Save in Keychain**. **Check read access** sends only `GET /api/instances` with that saved GPUtw key. It requires `instances:read`, discards account records and does not create instances or test startup, creation/management scopes, recovery or deletion. A saved key alone does not mean its permissions are valid.
+
+The Deployment screen shows why GPUtw provisioning is pending instead of displaying Runpod creation controls. The native provisioner also rejects GPUtw creation before a cloud request or durable creation record. Enabling the shared paid-provisioning option does not bypass that gate. The runtime image is public; creation correlation, authenticated readiness, enforced storage capacity/billing and matching GPU profiles remain unresolved. See [provider integration](provider-integration.md).
+
+New model analyses currently require Runpod selection. Saved Runpod model/price snapshots remain labeled Runpod, and refreshing their prices stays on that original provider even when GPUtw is selected. No H100 profile is silently mapped to GPUtw hardware.
+
+## CLI isolation
 
 App sessions use their own configuration and conversation histories under the app's data directory. Codex uses an app-owned `CODEX_HOME`, explicit provider settings at CLI precedence, and `--no-daemon`. Claude uses an app-owned `CLAUDE_CONFIG_DIR`, `--bare`, explicit gateway credentials/model mappings, empty setting sources, and strict MCP configuration.
 

@@ -155,6 +155,7 @@ impl CloudProvider for Provider {
         self.touch()?;
         let p = builtin_catalog()?.remove(0);
         Ok(Hardware {
+            provider: ProviderId::Runpod,
             gpus: vec![GpuType {
                 id: p.model.gpu_types[0].clone(),
                 display_name: "Fixture GPU".into(),
@@ -258,7 +259,7 @@ impl Fixture {
         let core = Arc::new(AppCore {
             store,
             credentials: credentials.clone(),
-            provider: provider.clone(),
+            providers: CloudProviders::new(provider.clone()),
             runtime: runtime.clone(),
             terminals: Arc::new(TerminalManager::default()),
             operations: tokio::sync::Mutex::new(()),
@@ -291,6 +292,7 @@ impl Fixture {
     pub fn request(&self) -> ProvisionRequest {
         let p = builtin_catalog().unwrap().remove(0);
         ProvisionRequest {
+            provider: ProviderId::Runpod,
             profile_id: p.model.id,
             gpu_type: p.model.gpu_types[0].clone(),
             data_center_id: "fixture-dc".into(),

@@ -2,7 +2,37 @@
 
 Host: Apple Silicon Mac, macOS 26.6.2. Implementation work: 5–6 October 2026; release-readiness review: 8 October 2026; provider assessment/refactor: 10 October 2026. **No Runpod or GPUtw compute, retained storage, model downloads or paid inference were created by these checks.**
 
-The **11 October 2026** full checks passed: generated-contract drift, production frontend, Rust formatting/Clippy and **92 regular tests** (53 Rust, 19 Python, 20 Vue). Three optional Rust probes remain ignored. The installed-Codex analysis, installed-CLI session and public Hugging Face metadata probes recorded below are earlier results and were not rerun. Earlier checks and their limits are preserved below.
+The **13 October 2026** provider-setup checks passed: generated-contract drift, production frontend, Rust formatting/Clippy and **106 regular tests** (61 Rust, 19 Python, 26 Vue). Three optional Rust probes remain ignored. The installed-Codex analysis, installed-CLI session and public Hugging Face metadata probes recorded below are earlier results and were not rerun. Earlier checks and their limits are preserved below.
+
+## Provider setup and routing — 13 October 2026
+
+### Follow-up contract review and transport correction
+
+After the owner requested the full GPUtw provider, rechecked current vendor documentation and pinned reference source at `136fa0bf6bcd9870e2b860372db89931005d93ea`. Anonymous reads of public reference files, the empty public issue list and `/config/deploy` were made; no working Keychain/API key, account records, resource creation, storage write, image validation, model download or inference was used. The confirmed and unresolved contract details are recorded in [provider integration](provider-integration.md#contract-recheck--13-october-2026). The owner subsequently approved posting the prepared questions. [GPUtw-Skill issue #1](https://github.com/GPUtw-ai/GPUtw-Skill/issues/1) was created through the owner's signed-in browser after the connector returned a repository-access denial; the posted title/body/author and Open status were verified, and a screenshot was saved in ignored `.local/gputw-contract-review/posted-issue.png`. No vendor answer has been verified yet. The paid adapter remains unfinished; this is not a completion or live-readiness claim.
+
+Corrected the native GPUtw client's missing `User-Agent`, which the vendor documents as required by its front door, and added explicit JSON `Accept`. Existing loopback fixtures now assert those headers. One focused test exposed the fixture's macOS accepted-socket nonblocking inheritance; the shared fixture now explicitly uses blocking accepted sockets with its existing bounded timeout. This corrects test transport rather than weakening production checks.
+
+Final `CARGO_NET_OFFLINE=true npm run check` and `CARGO_NET_OFFLINE=true npm test` passed after both corrections: **106 tests** (61 Rust, 19 Python, 26 Vue), with the same three opt-in Rust probes ignored. The source change has no UI or shared-contract changes. The follow-up `CARGO_NET_OFFLINE=true npm run tauri -- build --bundles app` also passed, and `codesign --verify --deep --strict` passed on the rebuilt arm64 app. The app was not opened against owner state; this remains local ad-hoc packaging, without Developer ID signing/notarization.
+
+Added visible Runpod/GPUtw selection, separate Keychain settings and read-only provider checks. Selection saves immediately; unrelated Setup drafts survive it. GPUtw creation remains gated in the interface and native service before any cloud request or creation intent. Provider identity defaults older records to Runpod and binds deployment lifecycle, endpoint routing and saved-price refresh. The selector does not change existing session/deployment snapshots. Read-only setup checks do not hold the deployment operations lock and delay cleanup.
+
+| Check | Result |
+| --- | --- |
+| `npm run contracts` | Passed. Generated provider types/default, preview metadata and shared contracts from Rust. The generator now trims trailing line whitespace; generated files were not hand-edited. |
+| `CARGO_NET_OFFLINE=true npm run check` | Passed on final source: generated drift, Vue/TypeScript production build, Rust formatting and Clippy with warnings denied. |
+| `CARGO_NET_OFFLINE=true npm test` | Passed on final source: 61 Rust, 19 Python and 26 Vue tests; three opt-in Rust probes remain ignored. |
+| Provider regressions | Passed: separate key storage and provider-specific active-deployment guards; old-record defaults; Runpod Enable/reconciliation/Finish after selecting GPUtw; unchanged saved fingerprint/endpoint; blocked GPUtw and stale creation requests; no unsupported-provider fallback; provider-bound imported quotes/refresh; key validation and unavailable-Keychain state; reads independent of the cleanup lock. |
+| GPUtw HTTP fixtures | Passed against bounded loopback fixtures: only GET is sent, private records are discarded, invalid envelopes and authentication/redirect failures are rejected without returning upstream bodies. No working GPUtw key or account was used. |
+| Vue regressions | Passed: immediate provider selection, draft-key clearing, preserved unrelated edits, provider-key command routing, honest read-access success, failure feedback, GPUtw deployment gate, cleared cached selection/confirmation and discarded late hardware results. |
+| Isolated browser inspection | Inspected actual app components with disposable preview state at 1280 × 850 and 960 × 650. Both providers and GPUtw's key/readiness controls render; no horizontal document overflow was observed. GPUtw's Add API key action navigates to Setup, and readiness details expand. The confirmation-tab console had no warnings/errors. |
+| Impeccable detector | One final mechanical scan returned no findings. Kept the existing dark workspace design and put detailed readiness requirements behind disclosure to make account setup easier to scan. |
+| `CARGO_NET_OFFLINE=true npm run tauri -- build --bundles app` | Passed. Rebuilt `src-tauri/target/release/bundle/macos/AI Deck.app` for arm64 with the existing app identifier and ad-hoc signature. |
+| `codesign --verify --deep --strict` | Passed on the rebuilt app. Developer ID signing/notarization and native interaction against owner state were not performed. |
+| Repository hygiene | `git diff --check` passed. Generated `providers.json` is tracked/diffable and marked generated in `.gitattributes`; `.local/` already excludes the disposable preview and evidence. No dependency, lockfile or unrelated line-ending changes. |
+
+The initial sandboxed full test attempt could not bind loopback listeners. The authorized offline suite passed with the necessary local listener/PTY permission. A shared HTTP fixture module was loaded twice during the first Clippy attempt; it is now registered once and reused by runtime and GPUtw tests. The final checks above passed after those corrections.
+
+No `/simplify` command was available. The focused manual pass centralized provider metadata/key routing, kept old Runpod key commands as wrappers, shared the existing HTTP fixture, separated read access from paid eligibility and preserved saved-provider routing. No working Keychain entry or saved owner app state was read, no paid resource/model download/inference was used, and no Git mutation ran. The actual GPUtw read-access check remains owner-operated; startup, recovery, storage, paid lifecycle and live model acceptance are still open in [provider integration](provider-integration.md).
 
 ## Desktop UI refinement — 11 October 2026
 

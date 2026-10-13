@@ -13,6 +13,7 @@ const imported = computed(() => state.value?.importedModels.filter(m => matches(
 const catalogProfiles = computed(() => snapshot.value?.catalog.filter(p => !state.value?.importedModels.some(m => m.id === p.model.id)) ?? []);
 const profiles = computed(() => catalogProfiles.value.filter(p => matches(`${p.model.displayName} ${p.model.repository}`)));
 const libraryCount = computed(() => (state.value?.importedModels.length ?? 0) + catalogProfiles.value.length);
+const importAvailable = computed(() => (state.value?.settings.provider ?? 'runpod') === 'runpod');
 async function importModel() {
   if (!url.value.trim()) return;
   const result = await deck.modelOperation('Reading model details…', () => call<ModelImportResult>('import_hugging_face_model', { url: url.value.trim(), reanalyze: false }));
@@ -27,7 +28,8 @@ async function importModel() {
   <form class="panel model-import" @submit.prevent="importModel">
     <div class="panel-heading"><div><h2>Add a model</h2><p>Codex suggests hardware and usable context for one coding session.</p></div></div>
     <label for="model-url">Hugging Face model URL</label>
-    <div class="input-action import-input"><input id="model-url" v-model="url" type="url" required placeholder="https://huggingface.co/organization/model" :disabled="!!modelImportBusy" autocomplete="off" /><button class="button primary" type="submit" :disabled="!!modelImportBusy || !url.trim()">Analyze &amp; save</button></div>
+    <div class="input-action import-input"><input id="model-url" v-model="url" type="url" required placeholder="https://huggingface.co/organization/model" :disabled="!!modelImportBusy" autocomplete="off" /><button class="button primary" type="submit" :disabled="!!modelImportBusy || !url.trim() || !importAvailable">Analyze &amp; save</button></div>
+    <p v-if="!importAvailable" class="notice">GPUtw hardware analysis is pending. Choose Runpod in <button class="inline-button" type="button" @click="view = 'setup'">Setup</button> to analyze new models. Saved Runpod suggestions remain available.</p>
     <p class="small muted">Uses your signed-in Codex CLI and reads current Runpod GPU prices. Importing does not create a Pod. Public model pages and /tree/revision links are supported.</p>
     <p v-if="!snapshot?.runpodKeyConfigured" class="import-setup-note">Add your Runpod API key in <button class="inline-button" type="button" @click="view = 'setup'">Setup</button> to include current pricing.</p>
     <div v-if="modelImportBusy" class="import-progress" role="status"><span class="spinner" />{{ modelImportBusy }}<button class="text-button push-right" type="button" @click="call('cancel_model_import').catch(deck.report)">Cancel</button></div>

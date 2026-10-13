@@ -248,7 +248,9 @@ async fn legacy_snapshots_load_without_rewriting_their_profile_and_preserve_know
     f.ready().await;
     let path = f.core.store.directory().to_path_buf();
     let mut old = serde_json::to_value(f.core.store.read().unwrap()).unwrap();
+    old["settings"].as_object_mut().unwrap().remove("provider");
     let d = old["deployments"][0].as_object_mut().unwrap();
+    d.remove("provider");
     d.remove("startupCompleted");
     d["profile"]["model"]
         .as_object_mut()
@@ -259,6 +261,14 @@ async fn legacy_snapshots_load_without_rewriting_their_profile_and_preserve_know
     drop(f.provider);
     std::fs::write(path.join("state.json"), serde_json::to_vec(&old).unwrap()).unwrap();
     let state = StateStore::open(path).unwrap().read().unwrap();
+    assert_eq!(
+        state.settings.provider,
+        ai_deck::cloud_provider::ProviderId::Runpod
+    );
+    assert_eq!(
+        state.deployments[0].provider,
+        ai_deck::cloud_provider::ProviderId::Runpod
+    );
     assert_eq!(state.deployments[0].startup_completed, Some(true));
     assert_eq!(
         serde_json::json!(state.deployments[0].profile.fingerprint),

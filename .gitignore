@@ -65,4 +65,4 @@ Thumbs.db
 Desktop.ini
 
 # Keep package-lock.json, src-tauri/Cargo.lock, source icons and the generated
-# contracts/defaults/catalog schema in Git; they are part of reproducible builds.
+# contracts/defaults/provider metadata/catalog schema in Git; they are part of reproducible builds.

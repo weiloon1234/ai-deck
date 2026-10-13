@@ -1,6 +1,13 @@
 use crate::error::{AppError, Result};
 
 pub const RUNPOD_KEY: &str = "runpod-management";
+pub const GPUTW_KEY: &str = "gputw-management";
+pub fn management_key(provider: crate::cloud_provider::ProviderId) -> &'static str {
+    match provider {
+        crate::cloud_provider::ProviderId::Runpod => RUNPOD_KEY,
+        crate::cloud_provider::ProviderId::Gputw => GPUTW_KEY,
+    }
+}
 pub trait CredentialStore: Send + Sync {
     fn get(&self, reference: &str) -> Result<Option<String>>;
     fn set(&self, reference: &str, value: &str) -> Result<()>;

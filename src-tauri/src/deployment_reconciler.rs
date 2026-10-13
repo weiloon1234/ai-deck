@@ -1,4 +1,9 @@
-use crate::{app_core::AppCore, cloud_provider::CloudResource, error::Result, types::*};
+use crate::{
+    app_core::AppCore,
+    cloud_provider::{CloudResource, ProviderId},
+    error::Result,
+    types::*,
+};
 
 impl AppCore {
     pub async fn reconcile_all(&self) -> Result<()> {
@@ -16,31 +21,47 @@ impl AppCore {
         if state.deployments.is_empty() {
             return Ok(());
         }
-        let pods = match self.provider.list().await {
-            Ok(pods) => pods,
-            Err(error) => {
-                for d in state.deployments.iter().filter(|d| !d.stage.is_terminal()) {
-                    self.disconnect(&d.id)?;
-                    self.stage(
-                        &d.id,
-                        if d.intended_action == "terminate" {
-                            DeploymentStage::CleanupPending
-                        } else {
-                            DeploymentStage::ReconciliationRequired
-                        },
-                        "Runpod is unreachable. Resource state and ongoing charges are uncertain.",
-                    )?;
-                }
-                return Err(error);
-            }
-        };
         let mut first_error = None;
-        for d in state.deployments {
-            if let Err(error) = self
-                .reconcile_one(&d.id, &state.installation_id, &pods)
-                .await
-            {
-                first_error.get_or_insert(error);
+        for provider_id in ProviderId::ALL {
+            let deployments: Vec<_> = state
+                .deployments
+                .iter()
+                .filter(|d| d.provider == provider_id)
+                .collect();
+            if deployments.is_empty() {
+                continue;
+            }
+            let listing = match self.providers.get(provider_id) {
+                Ok(provider) => provider.list().await,
+                Err(error) => Err(error),
+            };
+            let pods = match listing {
+                Ok(pods) => pods,
+                Err(error) => {
+                    for d in deployments.iter().filter(|d| !d.stage.is_terminal()) {
+                        self.disconnect(&d.id)?;
+                        let message = format!("{} could not be checked. Resource state and ongoing charges are uncertain.", provider_id.info().name);
+                        self.stage(
+                            &d.id,
+                            if d.intended_action == "terminate" {
+                                DeploymentStage::CleanupPending
+                            } else {
+                                DeploymentStage::ReconciliationRequired
+                            },
+                            &message,
+                        )?;
+                    }
+                    first_error.get_or_insert(error);
+                    continue;
+                }
+            };
+            for d in deployments {
+                if let Err(error) = self
+                    .reconcile_one(&d.id, &state.installation_id, &pods)
+                    .await
+                {
+                    first_error.get_or_insert(error);
+                }
             }
         }
         self.changed();
@@ -48,9 +69,10 @@ impl AppCore {
     }
     async fn reconcile_one(&self, id: &str, owner: &str, pods: &[CloudResource]) -> Result<()> {
         let mut d = self.deployment(id)?;
+        let provider = self.providers.get(d.provider)?;
         let matches: Vec<_> = pods
             .iter()
-            .filter(|p| self.provider.owns(&d, owner, p))
+            .filter(|p| provider.owns(&d, owner, p))
             .collect();
         // Also detect late creations after an explicitly resolved ambiguous request.
         if d.stage.is_terminal() {
@@ -96,7 +118,7 @@ impl AppCore {
             } else { "Multiple owned Pods were found. Use Finish to clean up all of them before provisioning again." })?;
             return Ok(());
         }
-        let pod = match self.provider.get(&d.pod_ids[0]).await {
+        let pod = match provider.get(&d.pod_ids[0]).await {
             Ok(Some(pod)) => pod,
             Ok(None) => {
                 self.stop_deployment_sessions(id)?;
@@ -108,7 +130,7 @@ impl AppCore {
                 return Err(error);
             }
         };
-        if !self.provider.owns(&d, owner, &pod) {
+        if !provider.owns(&d, owner, &pod) {
             self.disconnect(id)?;
             return self.stage(
                 id,

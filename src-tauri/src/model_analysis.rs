@@ -1,5 +1,5 @@
 use crate::{
-    cloud_provider::Hardware,
+    cloud_provider::{Hardware, ProviderId},
     error::{AppError, Result},
     hugging_face_client::HubModel,
     model_catalog::{
@@ -35,6 +35,8 @@ pub struct ModelAnalysis {
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct GpuQuote {
+    #[serde(default)]
+    pub provider: ProviderId,
     pub gpu_type: String,
     pub gpu_count: u32,
     pub memory_per_gpu_gb: u32,
@@ -44,6 +46,8 @@ pub struct GpuQuote {
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportedModel {
+    #[serde(default)]
+    pub provider: ProviderId,
     pub id: String,
     pub source_url: String,
     pub metadata: HubModel,
@@ -111,6 +115,7 @@ pub fn quotes(analysis: &ModelAnalysis, hardware: &Hardware) -> Vec<GpuQuote> {
                     >= analysis.minimum_total_vram_gb
         })
         .map(|g| GpuQuote {
+            provider: hardware.provider,
             gpu_type: g.id.clone(),
             gpu_count: analysis.gpu_count,
             memory_per_gpu_gb: g.memory_in_gb,
@@ -149,10 +154,13 @@ impl ImportedModel {
         let gpus: Vec<_> = self
             .quotes
             .iter()
-            .filter(|q| q.hourly_usd.is_some_and(|p| p <= hourly_limit))
+            .filter(|q| {
+                q.provider == self.provider && q.hourly_usd.is_some_and(|p| p <= hourly_limit)
+            })
             .collect();
         // Save unsupported analyses, but do not offer an invented working runtime.
-        if !a.runtime_compatible
+        if self.provider != ProviderId::Runpod
+            || !a.runtime_compatible
             || a.tool_parser.is_none()
             || gpus.is_empty()
             || self.metadata.config_json.is_empty()

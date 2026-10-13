@@ -2,7 +2,7 @@
 
 In **Models**, paste `https://huggingface.co/organization/model` and choose **Analyze & save**. A `/tree/revision` suffix is supported for a branch, tag or commit without slashes. The app resolves that reference to an immutable commit before reading the model config and card. It reads small metadata files only; importing does not download weights or create paid compute.
 
-New analyses require the Runpod management key in Setup, network access, and the selected local Codex CLI signed in with ChatGPT. The supported version is currently Codex 0.160.0, matching the existing launcher compatibility gate. Sign in using the CLI's normal login flow; do not paste subscription credentials into AI Deck. Analysis uses Codex subscription usage. Runpod coding sessions continue to use their separate isolated inference credentials.
+New analyses require Runpod selection and its management key in Setup, network access, and the selected local Codex CLI signed in with ChatGPT. GPUtw hardware analysis remains unavailable while its deployment integration is gated. Saved models and quotes have an explicit provider identity; older records default to Runpod. Refreshing a saved Runpod model uses Runpod even after the Setup selection changes. The supported version is currently Codex 0.160.0, matching the existing launcher compatibility gate. Sign in using the CLI's normal login flow; do not paste subscription credentials into AI Deck. Analysis uses Codex subscription usage. Runpod coding sessions continue to use their separate isolated inference credentials.
 
 ## Saved results
 

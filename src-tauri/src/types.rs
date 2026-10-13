@@ -78,6 +78,8 @@ impl Default for Policy {
 #[derive(Clone, Debug, Serialize, Deserialize, TS, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
+    #[serde(default)]
+    pub provider: crate::cloud_provider::ProviderId,
     pub policy: Policy,
     pub hugging_face_secret: Option<String>,
     pub codex_path: Option<String>,
@@ -95,6 +97,8 @@ pub struct Project {
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Deployment {
+    #[serde(default)]
+    pub provider: crate::cloud_provider::ProviderId,
     pub id: String,
     pub pod_name: String,
     pub pod_ids: Vec<String>,
@@ -199,6 +203,7 @@ impl LocalState {
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSnapshot {
+    pub providers: Vec<crate::provider_service::ProviderStatus>,
     pub state: LocalState,
     pub catalog: Vec<crate::model_catalog::ResolvedProfile>,
     pub runpod_key_configured: Option<bool>,
@@ -212,6 +217,7 @@ pub struct AppSnapshot {
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ProvisionRequest {
+    pub provider: crate::cloud_provider::ProviderId,
     pub profile_id: String,
     pub gpu_type: String,
     pub data_center_id: String,

@@ -45,6 +45,12 @@ impl RuntimeClient {
     }
 }
 pub fn endpoint(deployment: &Deployment, port: u16) -> Result<String> {
+    match deployment.provider {
+        crate::cloud_provider::ProviderId::Runpod => {},
+        crate::cloud_provider::ProviderId::Gputw => return Err(AppError::new(
+            "provider_not_ready", "GPUtw endpoint routing is not available yet.",
+            "This saved record cannot be routed through Runpod. Restore the matching provider implementation before using it.")),
+    }
     if deployment.pod_ids.len() != 1 {
         return Err(AppError::invalid(
             "Exactly one reconciled Pod is required for routing.",

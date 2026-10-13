@@ -1,6 +1,7 @@
 use ai_deck::{
     cloud_provider::*, error::AppError, hugging_face_client::HubModel, model_analysis::*,
-    model_catalog::*, model_import_service::ModelImportResult, types::*,
+    model_catalog::*, model_import_service::ModelImportResult, provider_service::ProviderStatus,
+    types::*,
 };
 use ts_rs::TS;
 
@@ -10,6 +11,9 @@ fn main() {
     macro_rules! export { ($($ty:ty),* $(,)?) => { $(types.push_str("export "); types.push_str(&<$ty>::decl()); types.push_str("\n\n");)* }; }
     export!(
         AppError,
+        ProviderId,
+        ProviderInfo,
+        ProviderStatus,
         DeploymentStage,
         CliKind,
         SessionStatus,
@@ -43,11 +47,21 @@ fn main() {
         ImportedModel,
         ModelImportResult
     );
+    let types = types
+        .lines()
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap();
     let outputs = [
         ("src/shared/contracts.ts", types),
+        (
+            "src/shared/providers.json",
+            serde_json::to_string_pretty(&ProviderId::ALL.map(ProviderId::info)).unwrap(),
+        ),
         (
             "src/shared/defaults.json",
             serde_json::to_string_pretty(&AppSettings::default()).unwrap(),

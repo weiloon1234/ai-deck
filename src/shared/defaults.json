@@ -1,4 +1,5 @@
 {
+  "provider": "runpod",
   "policy": {
     "paidProvisioningEnabled": false,
     "maxHourlyUsd": 10.0,

@@ -11,6 +11,13 @@ impl AppCore {
     pub async fn provision(&self, request: ProvisionRequest) -> Result<String> {
         let _guard = self.operations.lock().await;
         let state = self.store.read()?;
+        if request.provider != state.settings.provider {
+            return Err(AppError::invalid(
+                "The provider selection changed. Review the deployment again before confirming.",
+            ));
+        }
+        request.provider.ensure_provisioning()?;
+        let provider = self.providers.get(request.provider)?;
         let policy = &state.settings.policy;
         validate_policy(policy)?;
         if !policy.paid_provisioning_enabled || !request.acknowledge_paid_creation {
@@ -44,7 +51,7 @@ impl AppCore {
         {
             return Err(AppError::new("hugging_face_secret", "This model requires a Runpod Hugging Face secret reference.", "Accept any model access conditions and add the name of a read-scoped Runpod secret in Setup."));
         }
-        let hardware = self.provider.hardware().await?;
+        let hardware = provider.hardware().await?;
         let hourly = quote(
             &hardware,
             &request,
@@ -80,6 +87,7 @@ impl AppCore {
         let credential_ref = format!("inference-{id}");
         let token = inference_credential();
         let deployment = Deployment {
+            provider: request.provider,
             id: id.clone(),
             pod_name: format!("ai-deck-{}-{id}", &state.installation_id[..8]),
             pod_ids: vec![],
@@ -106,7 +114,7 @@ impl AppCore {
         };
         let mut deployment = deployment;
         deployment.gpu_count = deployment.profile.model.gpu_count;
-        let payload = self.provider.prepare_create(
+        let payload = provider.prepare_create(
             &deployment,
             &state.installation_id,
             &token,
@@ -125,17 +133,14 @@ impl AppCore {
             DeploymentStage::Provisioning,
             "Creation requested. GPU billing can begin before Enable.",
         )?;
-        match self.provider.create(payload).await {
+        match provider.create(payload).await {
             Ok(pod) => {
                 self.store.update(|s| {
                     let d = s.deployments.iter_mut().find(|d| d.id == id).unwrap();
                     d.pod_ids = vec![pod.id.clone()];
                     Ok(())
                 })?;
-                if !self
-                    .provider
-                    .owns(&deployment, &state.installation_id, &pod)
-                {
+                if !provider.owns(&deployment, &state.installation_id, &pod) {
                     self.stage(
                         &id,
                         DeploymentStage::ReconciliationRequired,
@@ -200,6 +205,7 @@ impl AppCore {
             self.stop_deployment_sessions(id)?;
             return self.wait_deployment_sessions(id).await;
         }
+        let provider = self.providers.get(deployment.provider)?;
         self.store.update(|state| {
             if state.enabled_deployment_id.as_deref() == Some(id) {
                 state.enabled_deployment_id = None;
@@ -217,7 +223,7 @@ impl AppCore {
         self.stop_deployment_sessions(id)?;
         let owner = self.store.read()?.installation_id;
         if deployment.pod_ids.is_empty() {
-            let pods = match self.provider.list().await {
+            let pods = match provider.list().await {
                 Ok(pods) => pods,
                 Err(e) => {
                     self.stage(
@@ -230,7 +236,7 @@ impl AppCore {
             };
             deployment.pod_ids = pods
                 .into_iter()
-                .filter(|p| self.provider.owns(&deployment, &owner, p))
+                .filter(|p| provider.owns(&deployment, &owner, p))
                 .map(|p| p.id)
                 .collect();
             if deployment.pod_ids.is_empty() {
@@ -254,10 +260,10 @@ impl AppCore {
         let mut pending = false;
         let mut first_error = None;
         for pod_id in &deployment.pod_ids {
-            match self.provider.get(pod_id).await {
+            match provider.get(pod_id).await {
                 Ok(None) => continue,
-                Ok(Some(pod)) if self.provider.owns(&deployment, &owner, &pod) => {
-                    let _ = self.provider.delete(pod_id).await;
+                Ok(Some(pod)) if provider.owns(&deployment, &owner, &pod) => {
+                    let _ = provider.delete(pod_id).await;
                 }
                 Ok(Some(_)) => {
                     pending = true;
@@ -270,7 +276,7 @@ impl AppCore {
                     continue;
                 }
             }
-            if !matches!(self.provider.get(pod_id).await, Ok(None)) {
+            if !matches!(provider.get(pod_id).await, Ok(None)) {
                 pending = true;
             }
         }
@@ -312,6 +318,7 @@ impl AppCore {
     pub async fn confirm_absent_creation(&self, id: &str, typed_name: &str) -> Result<()> {
         let _guard = self.operations.lock().await;
         let d = self.deployment(id)?;
+        let provider = self.providers.get(d.provider)?;
         if !d.pod_ids.is_empty()
             || d.pod_name != typed_name
             || now().saturating_sub(d.created_at) < 120
@@ -319,12 +326,11 @@ impl AppCore {
             return Err(AppError::invalid("Wait at least two minutes, verify the Runpod console, and enter the exact Pod name to resolve an unconfirmed creation."));
         }
         let owner = self.store.read()?.installation_id;
-        if self
-            .provider
+        if provider
             .list()
             .await?
             .iter()
-            .any(|p| self.provider.owns(&d, &owner, p))
+            .any(|p| provider.owns(&d, &owner, p))
         {
             return Err(AppError::invalid(
                 "A matching Pod exists. Reconcile and Finish it.",
@@ -363,6 +369,11 @@ fn quote(
     memory: u32,
     min_cache_gb: u32,
 ) -> Result<f64> {
+    if hardware.provider != request.provider {
+        return Err(AppError::invalid(
+            "The quote belongs to another provider. Refresh availability.",
+        ));
+    }
     let gpu = hardware
         .gpus
         .iter()

@@ -9,19 +9,29 @@ import UiIcon from '../../shared/UiIcon.vue';
 defineEmits<{ launch: [] }>();
 const deck = useDeck();
 const { state, snapshot, profile, selectedProfileId, hardware, activeDeployment: deployment, busy, error, connected, clock } = deck;
+const providerId = computed(() => state.value?.settings.provider ?? 'runpod');
+const provider = computed(() => snapshot.value?.providers?.find(p => p.info.id === providerId.value));
+const matchingHardware = computed(() => hardware.value?.provider === providerId.value ? hardware.value : null);
 const selectedImported = computed(() => state.value?.importedModels.find(model => model.id === profile.value?.model.id));
 const gpu = ref(''); const dataCenter = ref(''); const volume = ref('');
 const provisionConfirm = ref(false); const finishConfirm = ref(false); const absenceConfirm = ref(false); const typedName = ref('');
 watch(profile, p => { gpu.value = p?.model.gpuTypes[0] ?? ''; dataCenter.value = ''; volume.value = ''; }, { immediate: true });
 watch(dataCenter, () => { volume.value = ''; });
-const locations = computed(() => hardware.value?.dataCenters.filter(dc => dc.gpuAvailability.some(g => g.gpuTypeId === gpu.value && ['high', 'medium', 'low'].includes(g.stockStatus?.toLowerCase() ?? ''))) ?? []);
-const volumes = computed(() => hardware.value?.networkVolumes.filter(v => v.dataCenterId === dataCenter.value) ?? []);
-const rate = computed(() => (hardware.value?.gpus.find(g => g.id === gpu.value)?.securePrice ?? 0) * (profile.value?.model.gpuCount ?? 1));
+watch(providerId, () => { hardware.value = null; dataCenter.value = ''; volume.value = ''; provisionConfirm.value = false; }, { flush: 'sync' });
+const locations = computed(() => matchingHardware.value?.dataCenters.filter(dc => dc.gpuAvailability.some(g => g.gpuTypeId === gpu.value && ['high', 'medium', 'low'].includes(g.stockStatus?.toLowerCase() ?? ''))) ?? []);
+const volumes = computed(() => matchingHardware.value?.networkVolumes.filter(v => v.dataCenterId === dataCenter.value) ?? []);
+const rate = computed(() => (matchingHardware.value?.gpus.find(g => g.id === gpu.value)?.securePrice ?? 0) * (profile.value?.model.gpuCount ?? 1));
 const cost = computed(() => deployment.value ? (clock.value - deployment.value.createdAt) / 3600 * deployment.value.hourlyUsd : 0);
 const activeSessions = computed(() => state.value?.sessions.filter(s => s.deploymentId === deployment.value?.id && s.status !== 'ended') ?? []);
-async function refreshHardware() { await deck.perform('Checking current GPU availability', async () => { hardware.value = await deck.call<Hardware>('hardware'); }); }
+async function refreshHardware() {
+  const id = providerId.value;
+  await deck.perform('Checking current GPU availability', async () => {
+    const result = await deck.call<Hardware>('hardware', { provider: id });
+    if (providerId.value === id && result.provider === id) hardware.value = result;
+  });
+}
 async function provision() {
-  const id = await deck.perform('Provisioning Runpod', () => deck.call<string>('provision', { request: { profileId: selectedProfileId.value, gpuType: gpu.value, dataCenterId: dataCenter.value, networkVolumeId: volume.value || null, acknowledgePaidCreation: true } }));
+  const id = await deck.perform('Provisioning compute', () => deck.call<string>('provision', { request: { provider: providerId.value, profileId: selectedProfileId.value, gpuType: gpu.value, dataCenterId: dataCenter.value, networkVolumeId: volume.value || null, acknowledgePaidCreation: true } }));
   if (id) provisionConfirm.value = false;
 }
 async function finish() {
@@ -30,15 +40,21 @@ async function finish() {
 }
 </script>
 <template>
-  <div class="page-heading"><div><h1>Deployment</h1><p>Provision compute, enable your endpoint, then open a coding session.</p></div><span class="pill"><span :class="['dot', deployment?.stage]" />{{ deployment ? stageLabel(deployment.stage) : 'No active Pod' }}</span></div>
-  <div class="workflow"><div :class="{ current: !deployment, done: !!deployment }"><span>01</span><strong>Provision Runpod</strong><small>Choose model and compute</small></div><b>→</b><div :class="{ current: !!deployment && !connected, done: connected }"><span>02</span><strong>Enable endpoint</strong><small>Select routing when ready</small></div><b>→</b><div :class="{ current: connected }"><span>03</span><strong>Open your CLI</strong><small>Code in your local project</small></div></div>
+  <div class="page-heading"><div><h1>Deployment</h1><p>Provision compute, enable your endpoint, then open a coding session.</p></div><button class="button ghost compact" @click="deck.view.value = 'setup'">{{ provider?.info.name ?? 'Runpod' }} · change provider</button><span class="pill"><span :class="['dot', deployment?.stage]" />{{ deployment ? stageLabel(deployment.stage) : 'No active compute' }}</span></div>
+  <div class="workflow"><div :class="{ current: !deployment, done: !!deployment }"><span>01</span><strong>Provision compute</strong><small>Choose model and provider</small></div><b>→</b><div :class="{ current: !!deployment && !connected, done: connected }"><span>02</span><strong>Enable endpoint</strong><small>Select routing when ready</small></div><b>→</b><div :class="{ current: connected }"><span>03</span><strong>Open your CLI</strong><small>Code in your local project</small></div></div>
   <div v-if="deployment" class="stats-grid"><div class="stat-card"><span>GPU rate</span><strong>{{ money(deployment.hourlyUsd) }}<small>/ hour</small></strong><p>Limit {{ money(state?.settings.policy.maxHourlyUsd ?? snapshot?.hourlyCeilingUsd ?? 0) }}/h</p></div><div class="stat-card"><span>Elapsed runtime</span><strong class="time-value">{{ elapsed(clock - deployment.createdAt) }}</strong><p>Includes startup and idle time</p></div><div class="stat-card"><span>Estimated GPU cost</span><strong>{{ money(cost) }}</strong><p>Estimate, not an invoice or exact cap</p></div><div class="stat-card"><span>Local sessions</span><strong>{{ activeSessions.length }}<small>/ {{ deployment.profile.model.maxSessions }}</small></strong><p>Configured capacity</p></div></div>
-  <section v-if="!deployment" class="panel provision-panel">
+  <section v-if="!deployment && provider && !provider.info.provisioningAvailable" class="panel">
+    <div class="panel-heading"><div><h2>{{ provider.info.name }} provisioning is pending</h2><p>Provider selection and Keychain setup are ready. AI Deck cannot create GPUtw instances yet.</p></div><span class="tag amber">SETUP ONLY</span></div>
+    <ul class="limitations"><li v-for="limit in provider.info.limitations" :key="limit">{{ limit }}</li></ul>
+    <p class="small muted">The published runtime image is available. Existing model profiles and price snapshots target Runpod; they are not GPUtw offers.</p>
+    <button class="button ghost section-gap" @click="deck.view.value = 'setup'">{{ provider.keyConfigured ? 'Review GPUtw setup' : 'Add GPUtw API key' }}</button>
+  </section>
+  <section v-else-if="!deployment" class="panel provision-panel">
     <div class="panel-heading"><div><h2>Prepare your deployment</h2><p>A provisioned GPU starts billing before you enable it.</p></div><span class="tag">SECURE CLOUD</span></div>
     <div class="form-grid">
       <label>Model profile<select v-model="selectedProfileId"><option v-for="p in snapshot?.catalog" :key="p.model.id" :value="p.model.id">{{ p.model.displayName }} · candidate</option></select></label>
       <label>GPU configuration<select v-model="gpu"><option v-for="g in profile?.model.gpuTypes" :key="g" :value="g">{{ profile?.model.gpuCount }} × {{ g }}</option></select></label>
-      <label>Location<select v-model="dataCenter"><option value="">{{ hardware ? 'Choose available location' : 'Check availability first' }}</option><option v-for="dc in locations" :key="dc.id" :value="dc.id">{{ dc.location }} · {{ dc.id }}</option></select></label>
+      <label>Location<select v-model="dataCenter"><option value="">{{ matchingHardware ? 'Choose available location' : 'Check availability first' }}</option><option v-for="dc in locations" :key="dc.id" :value="dc.id">{{ dc.location }} · {{ dc.id }}</option></select></label>
       <label>Model storage<select v-model="volume"><option value="">Fully temporary · download each run</option><option v-for="v in volumes" :key="v.id" :value="v.id" :disabled="v.size < (profile?.model.minCacheGb ?? 0)">Retain {{ v.name }} · {{ v.size }} GB{{ v.size < (profile?.model.minCacheGb ?? 0) ? ' · too small' : '' }}</option></select></label>
     </div>
     <details v-if="selectedImported" class="model-review selected-model-details"><summary>Review model details, hardware and prices</summary><div class="model-overview"><ModelDetails :metadata="selectedImported.metadata" /><ModelHardwareSuggestion :model="selectedImported" /></div></details>
@@ -48,7 +64,7 @@ async function finish() {
     <footer class="panel-footer"><div><strong>{{ rate ? `${money(rate)}/hour` : 'Check availability for current pricing' }}</strong><small>GPU limit {{ money(state?.settings.policy.maxHourlyUsd ?? snapshot?.hourlyCeilingUsd ?? 0) }}/h · {{ state?.settings.policy.maxLifetimeMinutes ? `Maximum lifetime: ${state.settings.policy.maxLifetimeMinutes} minutes` : 'Maximum lifetime has not been set' }}</small></div><div class="button-row"><button class="button ghost" :disabled="!!busy || !snapshot?.runpodKeyConfigured" @click="refreshHardware">Check availability</button><button class="button primary" :disabled="!!busy || !state?.settings.policy.paidProvisioningEnabled || !profile || !dataCenter || !rate || rate > state.settings.policy.maxHourlyUsd" @click="provisionConfirm = true">Provision Runpod →</button></div></footer>
   </section>
   <section v-else class="panel">
-    <div class="panel-heading"><div><h2>{{ deployment.profile.model.displayName }}</h2><p>{{ deployment.gpuCount }} × {{ deployment.gpuType }} · {{ deployment.dataCenterId }}</p></div><span :class="['tag', deployment.stage === 'ready' ? 'green' : 'amber']">{{ stageLabel(deployment.stage) }}</span></div>
+    <div class="panel-heading"><div><h2>{{ deployment.profile.model.displayName }}</h2><p>{{ snapshot?.providers?.find(p => p.info.id === deployment?.provider)?.info.name ?? 'Runpod' }} · {{ deployment.gpuCount }} × {{ deployment.gpuType }} · {{ deployment.dataCenterId }}</p></div><span :class="['tag', deployment.stage === 'ready' ? 'green' : 'amber']">{{ stageLabel(deployment.stage) }}</span></div>
     <div :class="['deployment-status', deployment.stage]" role="status"><span :class="['dot', deployment.stage]" /><div><strong>{{ deployment.message }}</strong><p v-if="deployment.cleanupDueAt">Last session ended. Auto-termination in {{ elapsed(deployment.cleanupDueAt - clock) }}. Opening a session cancels this countdown.</p><p>Local lifetime countdown: {{ elapsed(deployment.deadlineAt - clock) }} · {{ activeSessions.length }} affected sessions</p></div></div>
     <div v-if="deployment.failureReason" class="notice warning">{{ deployment.failureReason }} <a @click="deck.openExternal" :href="`https://huggingface.co/${deployment.profile.model.repository}`" target="_blank" rel="noreferrer">Model page ↗</a></div>
     <div class="binding"><span>{{ state?.enabledDeploymentId === deployment.id ? 'SELECTED FOR NEW SESSIONS' : 'NOT ENABLED' }}</span><strong>{{ state?.enabledDeploymentId === deployment.id && !connected ? 'Selection needs revalidation' : deployment.profile.model.servedModel }}</strong><small>Existing sessions retain their original deployment.</small></div>

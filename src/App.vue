@@ -17,6 +17,7 @@ const launchProjectId = ref<string | null>(null);
 const workspaceElement = ref<HTMLElement>();
 const historyExpanded = ref(false);
 const endedSessionCount = computed(() => state.value?.sessions.filter(session => session.status === 'ended').length ?? 0);
+const selectedProvider = computed(() => deck.snapshot.value?.providers?.find(p => p.info.id === state.value?.settings.provider)?.info);
 const sidebarSessions = computed(() => (state.value?.sessions ?? []).filter(session => historyExpanded.value || session.status !== 'ended').slice().reverse());
 watch(view, () => workspaceElement.value?.scrollIntoView({ block: 'start' }), { flush: 'post' });
 function openSession(projectId?: string) { launchProjectId.value = projectId ?? null; launchOpen.value = true; }
@@ -49,7 +50,7 @@ async function quit(finishPods: boolean, acknowledgeRunningCosts = false) {
       <div class="sidebar-bottom"><div class="local-label"><span class="dot ready" />Files stay on this Mac</div><p>Prompts and selected code are sent to your hosted model.</p><button class="text-button" @click="quitRequested = true">Quit AI Deck ↗</button></div>
     </aside>
     <div ref="workspaceElement" class="workspace">
-      <header class="topbar"><div class="breadcrumb">Workspace <span aria-hidden="true">/</span> <strong>{{ navigation.find(n => n.id === view)?.label }}</strong></div><div class="connection"><span :class="['dot', connected ? 'ready' : '']" />{{ connected ? enabledDeployment?.profile.model.displayName : 'No enabled endpoint' }}</div></header>
+      <header class="topbar"><div class="breadcrumb">Workspace <span aria-hidden="true">/</span> <strong>{{ navigation.find(n => n.id === view)?.label }}</strong></div><button v-if="selectedProvider" class="text-button" @click="view = 'setup'">{{ selectedProvider.name }}{{ selectedProvider.provisioningAvailable ? '' : ' · setup only' }}</button><div class="connection"><span :class="['dot', connected ? 'ready' : '']" />{{ connected ? enabledDeployment?.profile.model.displayName : 'No enabled endpoint' }}</div></header>
       <div v-if="!deck.native" class="preview-banner">Browser preview · Cloud and terminal controls are available in the desktop app.</div>
       <div v-for="issue in [deck.snapshot.value?.catalogError, deck.snapshot.value?.credentialStoreError].filter(Boolean)" :key="issue!.code" class="error-banner" role="alert"><div><strong>{{ issue!.message }}</strong><p>{{ issue!.recovery }} Your saved deployments and cleanup controls remain available.</p></div><button class="button ghost" :disabled="!!busy" @click="deck.perform('Reloading workspace', deck.refresh)">Retry</button></div>
       <div v-if="error" class="error-banner" role="alert"><div><strong>{{ error.message }}</strong><p>{{ error.recovery }}</p></div><button class="icon-button" aria-label="Dismiss error" @click="error = null">×</button></div>

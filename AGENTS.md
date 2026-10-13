@@ -31,7 +31,8 @@ The project/package name is `ai-deck`, Rust library `ai_deck`, and displayed pro
 | Concern | Edit here |
 | --- | --- |
 | Native state, IPC types, policy defaults | Rust types and services under `src-tauri/src/` |
-| Provider boundary and Runpod protocol | `src-tauri/src/cloud_provider.rs` and `src-tauri/src/runpod_client.rs` |
+| Provider identity, capabilities and adapter routing | `src-tauri/src/cloud_provider.rs`; setup/key operations in `provider_service.rs` |
+| Runpod protocol and GPUtw read-only setup check | `src-tauri/src/runpod_client.rs` and `src-tauri/src/gputw_client.rs` |
 | Bundled model/runtime settings | `model-catalog/catalog.json`; validate in `model_catalog.rs` |
 | Imported metadata, analysis and quotes | Existing `StateStore` through `model_import_service.rs` |
 | Generated frontend types/defaults/catalog schema | Rust sources and `src-tauri/examples/export_contracts.rs`; run `npm run contracts` |
@@ -40,7 +41,7 @@ The project/package name is `ai-deck`, Rust library `ai_deck`, and displayed pro
 | CLI isolation and supported versions | `src-tauri/src/cli_adapters/` |
 | GPU startup behavior | `containers/vllm-runtime/launcher.py` |
 
-Do not hand-edit `src/shared/contracts.ts`, `src/shared/defaults.json` or `model-catalog/schema.json`. Do not edit build artifacts, dependency directories or generated Tauri schema files as implementation sources. Avoid introducing another store or a database dependency for the model library.
+Do not hand-edit `src/shared/contracts.ts`, `src/shared/defaults.json`, `src/shared/providers.json` or `model-catalog/schema.json`. Do not edit build artifacts, dependency directories or generated Tauri schema files as implementation sources. Avoid introducing another store or a database dependency for the model library.
 
 ## Scoped guidance
 

@@ -359,6 +359,7 @@ mod tests {
                 notes: vec![],
             },
             hardware: Hardware {
+                provider: crate::cloud_provider::ProviderId::Runpod,
                 gpus: vec![GpuType {
                     id: "fixture-gpu".into(),
                     display_name: "fixture".into(),

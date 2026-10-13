@@ -17,13 +17,15 @@ Closing a terminal or window leaves the Pod running. Retained network volumes su
 
 ## Current status
 
-The desktop workflow, UI refinement and provider boundary refactor pass the **11 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **92 tests** (53 Rust, 19 Python, 20 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **No paid Runpod or GPUtw tests have been performed.** Bundled profiles and imported AI suggestions are unverified candidates, not proven runnable configurations. A successful real-subscription model analysis and real coding sessions on the chosen GPU remain owner-operated checks.
+The desktop workflow and provider setup pass the **13 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **106 tests** (61 Rust, 19 Python, 26 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **No paid Runpod or GPUtw tests have been performed.** Bundled profiles and imported AI suggestions are unverified candidates, not proven runnable configurations. A successful real-subscription model analysis and real coding sessions on the chosen GPU remain owner-operated checks.
 
 Paid provisioning defaults to off. The maximum configurable GPU rate is **USD 10/hour**; storage is separate. A published model context limit describes its saved configuration, while the AI's usable context range estimates what might fit the proposed GPU setup. Neither is a measured performance guarantee.
 
 See the [local validation record](docs/local-validation.md) for completed checks and remaining live acceptance gates.
 
-Runpod is currently the only selectable provider. The [GPUtw assessment and provider integration guide](docs/provider-integration.md) records its API fit, dated price observations and unresolved ownership/startup contracts. The provider boundary and read-only recovery probe are prepared. The `linux/amd64` wrapper passed local supervisor/authentication checks and was published to GHCR on **13 October 2026**. The [public image package](https://github.com/weiloon1234/ai-deck-runtime/pkgs/container/ai-deck-runtime) is connected to the selected repository; anonymous checks verified its immutable digest, runtime manifest and largest layer. [Publication evidence and deployment pin](docs/provider-integration.md#verified-registry-upload--13-october-2026). GPUtw provisioning remains disabled; publication does not establish GPU or model compatibility.
+**Setup → Cloud provider** now offers **Runpod** and **GPUtw.ai · setup only**. Selection saves immediately. Each provider has its own API-key entry in Keychain and a **Check read access** action. GPUtw's check only lists instances with `instances:read`; it discards account records and never creates compute. Saving a key does not verify it. Existing deployments, endpoints, model quotes and cleanup remain bound to their original provider; old records default to Runpod.
+
+Runpod is still the only provider that can provision. GPUtw displays the unresolved creation-recovery, authenticated-startup and storage/hardware requirements in Setup and Deployment; native commands enforce the same gate. Current model profiles and new model analyses target Runpod. The [GPUtw integration guide](docs/provider-integration.md) explains the remaining work. The `linux/amd64` wrapper is published in the [public image package](https://github.com/weiloon1234/ai-deck-runtime/pkgs/container/ai-deck-runtime), with [verified digest and publication evidence](docs/provider-integration.md#verified-registry-upload--13-october-2026). Publication does not establish GPU or model compatibility.
 
 ## Why this design
 
@@ -50,6 +52,7 @@ flowchart TB
     Core -->|Metadata only| HF[Hugging Face]
     Core -->|Model analysis| Analyzer[Local Codex CLI with normal subscription]
     Core -->|Create, inspect, delete| Runpod[Runpod management API]
+    Core -->|Read-only setup check| GPUtw[GPUtw API; provisioning gated]
     Runpod --> Pod[GPU Pod: Python supervisor and vLLM]
     Core -->|Verify status and inference| Pod
     Core -->|Owned local processes| Sessions[Isolated Codex / Claude Code terminals]
@@ -61,7 +64,7 @@ flowchart TB
 
 Vue organizes the app into Setup, Models, Projects, Deployments and Sessions. `src/shared/useDeck.ts` owns shared UI state and the command/event bridge. The interface requests actions through Tauri; Rust owns cloud calls, credentials, filesystem access, validation and process management.
 
-`AppCore` composes the state store, credential store, provider/runtime clients and terminal manager. Focused services handle provisioning, reconciliation, endpoint enablement, session lifecycle and model imports. Provider, credential, runtime and analyzer interfaces allow tests to substitute local fixtures. Model analysis has a separate lock so it cannot block deployment cleanup.
+`AppCore` composes the state store, credential store, provider registry/runtime clients and terminal manager. `provider_service.rs` handles selection, per-provider Keychain state and read checks; `CloudProviders` looks up deployment adapters by saved identity. GPUtw currently has a read-only setup client, with no paid adapter or fallback to Runpod. Focused services handle provisioning, reconciliation, endpoint enablement, session lifecycle and model imports. Provider, credential, runtime and analyzer interfaces allow tests to substitute local fixtures. Model analysis has a separate lock so it cannot block deployment cleanup.
 
 ### Model library and configuration
 
@@ -69,13 +72,13 @@ Hugging Face imports resolve a URL to an immutable revision, read bounded metada
 
 Model facts come from saved Hugging Face metadata/config. Hardware and usable-context suggestions come from Codex. The app displays these separately and reuses the same components in the model library and deployment preparation. It does not download model weights during import.
 
-`model-catalog/catalog.json` is the source for bundled model/runtime settings. Rust owns catalog validation, shared data types and defaults. `npm run contracts` generates frontend contracts, default settings and the catalog JSON schema. Each deployment retains its full resolved profile snapshot, so editing the library cannot silently change existing sessions.
+`model-catalog/catalog.json` is the source for bundled model/runtime settings. Rust owns catalog validation, shared data types, provider availability and defaults. `npm run contracts` generates frontend contracts, default settings, browser-preview provider metadata and the catalog JSON schema. Each deployment retains its full resolved profile snapshot, so editing the library cannot silently change existing sessions.
 
 ### Persistence and credentials
 
 The app uses an atomic JSON state store in Tauri's application-data directory, with an exclusive application lock. It stores projects, deployments, session records, settings and imported models; no separate database server is needed. Updates are written privately and durably before becoming the in-memory state. Invalid saved state is reported rather than reset.
 
-Runpod management and deployment credentials are held in macOS Keychain. Model-analysis runs use the owner's normal Codex subscription login. Coding terminals use separate app-owned CLI state and deployment inference credentials. These are distinct routes; the app does not rewrite the user's ordinary terminal configuration.
+Runpod and GPUtw management keys use separate macOS Keychain entries. Deployment credentials are also held in Keychain. Model-analysis runs use the owner's normal Codex subscription login. Coding terminals use separate app-owned CLI state and deployment inference credentials. These are distinct routes; the app does not rewrite the user's ordinary terminal configuration.
 
 ### Remote runtime and lifecycle
 
@@ -85,7 +88,7 @@ Provisioning, enabling and opening a CLI remain separate actions. Durable creati
 
 ## Project identity
 
-The project folder and npm/Cargo package are `ai-deck`, the Rust library is `ai_deck`, and the desktop product is **AI Deck** (`AI Deck.app`). Runpod remains the cloud provider, so provider APIs, settings and service filenames retain the Runpod name.
+The project folder and npm/Cargo package are `ai-deck`, the Rust library is `ai_deck`, and the desktop product is **AI Deck** (`AI Deck.app`). Runpod-specific APIs, secret references and service filenames retain the Runpod name. GPUtw uses its own provider identity and management-key entry.
 
 The installed-app identifier and Keychain service stay `com.runpoddeck.desktop` so existing local state, model imports, credentials and session folders remain accessible. The Codex provider ID and Pod ownership/runtime environment keys also retain their original values because saved histories and running Pods reference them. These are compatibility contracts, not branding to replace during routine cleanup. Historical audit paths remain as originally recorded.
 
