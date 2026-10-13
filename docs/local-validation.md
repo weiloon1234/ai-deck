@@ -2,7 +2,22 @@
 
 Host: Apple Silicon Mac, macOS 26.6.2. Implementation work: 5–6 October 2026; release-readiness review: 8 October 2026; provider assessment/refactor: 10 October 2026. **No Runpod or GPUtw compute, retained storage, model downloads or paid inference were created by these checks.**
 
-The **13 October 2026** provider-setup checks passed: generated-contract drift, production frontend, Rust formatting/Clippy and **106 regular tests** (61 Rust, 19 Python, 26 Vue). Three optional Rust probes remain ignored. The installed-Codex analysis, installed-CLI session and public Hugging Face metadata probes recorded below are earlier results and were not rerun. Earlier checks and their limits are preserved below.
+The latest **13 October 2026** Codex compatibility checks passed: generated-contract drift, production frontend, Rust formatting/Clippy and **106 regular tests** (61 Rust, 19 Python, 26 Vue). Four optional Rust probes are ignored by the regular suite; the two installed-Codex probes also passed separately. Earlier checks and their limits are preserved below.
+
+## Codex version compatibility — 13 October 2026
+
+The owner's Models screenshot showed analysis blocked by the CLI version gate. The installed Codex reports `codex-cli 0.162.0-alpha.17.2`, while the gate previously accepted only `codex-cli 0.160.0`. Checked the installed help and [official CLI reference](https://learn.chatgpt.com/docs/cli/reference), then ran the existing installed-binary probes before retaining the new exact version in the allowlist. Launcher and analyzer isolation flags are unchanged. Future versions remain blocked, and errors now show the detected version and accepted versions from the native gate. Setup copy no longer duplicates that version list.
+
+| Check | Result and limits |
+| --- | --- |
+| `CARGO_NET_OFFLINE=true cargo test --manifest-path src-tauri/Cargo.toml --test installed_cli_smoke installed_codex -- --ignored --nocapture` | Both probes passed with Codex `0.162.0-alpha.17.2`. The analysis request included its strict JSON schema, restricted tool declarations and the disabled execution-host diagnostic. The session adapter reached localhost using its scoped fake credential; disposable normal authentication was unchanged. This is rejection-path validation, not successful subscription analysis or model inference. |
+| `CARGO_NET_OFFLINE=true npm run check` | Passed: generated drift, Vue/TypeScript build, Rust formatting and Clippy with warnings denied. |
+| `CARGO_NET_OFFLINE=true npm test` | Passed: 61 Rust, 19 Python and 26 Vue tests. Four opt-in probes ignored; the combined installed-session probe is now two independently selectable tests sharing the same implementation. Regressions accept the checked versions, reject a subsequent alpha and show useful version errors. |
+| `CARGO_NET_OFFLINE=true npm run tauri -- build --bundles app` and `codesign --verify --deep --strict` | Passed. Rebuilt and verified the arm64 `src-tauri/target/release/bundle/macos/AI Deck.app` with its existing identifier and ad-hoc signature. The app was not opened against owner state; Developer ID signing/notarization was not performed. Replace any previously installed app copy to use this fix. |
+| Other installed versions | Codex `0.160.0` and Claude Code `2.1.289` retain their earlier acceptance/evidence; their binaries were not rerun. Installed Claude Code now reports `2.1.296`, observed with `--version` only; it remains unverified and blocked. |
+| Source and repository review | A focused manual simplification pass shared the existing routing probe between the separate CLI tests. Both probe listeners now explicitly set accepted sockets to blocking mode with the existing bounded read timeout, matching the shared HTTP fixture's macOS correction. `.gitignore` and `.gitattributes` already cover the outputs; no new rules or scoped agent instructions are needed. Local documentation link targets exist and `git diff --check` passes. No dependency, lockfile or generated-contract changes. |
+
+The first sandboxed probe attempt was denied permission to bind localhost. Both probes and the regular suite passed with the authorized listener/PTY permission. No owner credentials/state were read, no CLI was installed/upgraded, no real subscription analysis or paid cloud operation ran, and no Git commit/push/merge was performed. A successful analysis through the owner's normal subscription remains an owner-led acceptance check.
 
 ## Provider setup and routing — 13 October 2026
 

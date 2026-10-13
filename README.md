@@ -161,13 +161,14 @@ If the checkout is moved and Tauri reports generated files under its previous ab
 
 Regular tests use fake cloud services, disposable directories, local pseudo-terminals and loopback HTTP servers. They do not create Runpod resources, download model weights or invoke paid inference. Some environments require permission for local listeners and child processes.
 
-Optional installed-CLI probes are ignored by the regular suite. They use fake credentials and a localhost rejection server, and require the exact supported installed versions:
+Optional installed-CLI probes are ignored by the regular suite. They use fake credentials and a localhost rejection server, and require an exact checked installed version. Select the CLI being validated; its allowlist lives in [`assert_known_launcher`](src-tauri/src/cli_adapters/mod.rs):
 
 ```sh
-cargo test --manifest-path src-tauri/Cargo.toml --test installed_cli_smoke -- --ignored --nocapture
+cargo test --manifest-path src-tauri/Cargo.toml --test installed_cli_smoke installed_codex -- --ignored --nocapture
+cargo test --manifest-path src-tauri/Cargo.toml --test installed_cli_smoke installed_claude -- --ignored --nocapture
 ```
 
-A rejection probe validates routing and arguments, not successful model compatibility. Other opt-in probes and their results are described in [model import](docs/model-import.md) and [local validation](docs/local-validation.md).
+A rejection probe validates routing and arguments, not successful model compatibility. Unchecked versions are blocked with the detected and checked versions shown in the error; choose an existing checked executable in Setup or validate the newer version before updating the adapter. Other opt-in probes and their results are described in [model import](docs/model-import.md) and [local validation](docs/local-validation.md).
 
 ## First owner-led live test
 

@@ -120,7 +120,21 @@ fn inherited_environment_is_an_allowlist_and_new_cli_versions_are_not_trusted() 
         .keys()
         .all(|key| allowed.contains(key.as_str())));
     assert!(cli_adapters::assert_known_launcher(&CliKind::Codex, "codex-cli 0.160.0").is_ok());
+    assert!(
+        cli_adapters::assert_known_launcher(&CliKind::Codex, "codex-cli 0.162.0-alpha.17.2")
+            .is_ok()
+    );
     assert!(cli_adapters::assert_known_launcher(&CliKind::Codex, "codex-cli 0.160.1").is_err());
+    let error =
+        cli_adapters::assert_known_launcher(&CliKind::Codex, "codex-cli 0.162.0-alpha.17.3")
+            .unwrap_err();
+    assert_eq!(error.code, "cli_version_unverified");
+    assert!(error.message.contains("0.162.0-alpha.17.3"));
+    assert!(error.recovery.contains("0.162.0-alpha.17.2"));
+    assert!(cli_adapters::assert_known_launcher(&CliKind::Claude, "2.1.289 (Claude Code)").is_ok());
+    assert!(
+        cli_adapters::assert_known_launcher(&CliKind::Claude, "2.1.290 (Claude Code)").is_err()
+    );
 }
 #[tokio::test]
 async fn no_route_or_unavailable_original_binding_cannot_launch_or_resume() {
