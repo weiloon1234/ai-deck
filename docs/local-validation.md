@@ -2,7 +2,19 @@
 
 Host: Apple Silicon Mac, macOS 26.6.2. Implementation work: 5–6 October 2026; release-readiness review: 8 October 2026; provider assessment/refactor: 10 October 2026. **No Runpod or GPUtw compute, retained storage, model downloads or paid inference were created by these checks.**
 
-The latest **13 October 2026** creation-recovery diagnostics passed generated-contract drift, production frontend, Rust formatting/Clippy and **121 regular tests** (69 Rust, 19 Python, 33 Vue). Four optional Rust probes are ignored by the regular suite and were not rerun for this change. Earlier installed-CLI checks and their limits are preserved below.
+The latest **13 October 2026** recovery-action visibility correction passed all **33 Vue tests**, generated-contract drift, production frontend and Rust formatting/Clippy. The preceding full suite passed **121 regular tests** (69 Rust, 19 Python, 33 Vue); native/runtime sources are unchanged by this follow-up, so those suites were not repeated. Four optional Rust probes remain ignored. Earlier installed-CLI checks and their limits are preserved below.
+
+## Visible absence recovery action — 13 October 2026
+
+The owner continued pressing Reconcile and Finish while the required absence action remained inside a collapsed details section. Moved the existing **Resolve an absent creation** button beside Reconcile and updated the help text. It appears only for records without a Pod ID. Opening it invokes no cloud operation and reuses the existing typed-name confirmation; native delay, exact-name, fresh listing and late-creation protection are unchanged. No state was cleared by the agent.
+
+`npm run test:ui` passed all 33 cases, including the visible placement, opening the existing dialog without issuing another command, and hiding the action once a Pod ID exists. `CARGO_NET_OFFLINE=true npm run check` passed generated drift, production frontend, Rust formatting and Clippy. No native/runtime/contract source changed, so the preceding complete 121-test run remains the native/runtime evidence.
+
+Inspected actual components with a synthetic legacy record lacking a saved creation error at 1280 × 850 and 960 × 650. The action stays visible with details collapsed, wraps using existing styles and opens the confirmation with Verify absence disabled until a matching name is entered. No horizontal overflow or console warnings/errors were observed. Captures are ignored under `.local/model-configuration/visible-recovery-*.png`; the design hook reported no deterministic findings. This was a narrow refinement, not a whole-app audit. The manual simplification pass moved the existing action instead of adding another recovery path.
+
+No owner state/credentials, provider calls, paid tests, model downloads or inference were used. Operating guidance and frontend AGENTS describe the visible control. Existing ignore/attribute rules cover these outputs; no new rules, dependencies, lockfiles, styles or generated files changed.
+
+`CARGO_NET_OFFLINE=true npm run tauri -- build --bundles app` and `codesign --verify --deep --strict` passed on the final arm64 app with the existing identifier and ad-hoc signature. The app was not opened against owner state; Developer ID signing/notarization was not performed. `git diff --check` passed.
 
 ## Creation-recovery diagnostics — 13 October 2026
 

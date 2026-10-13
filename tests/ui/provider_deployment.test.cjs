@@ -69,7 +69,15 @@ test('unconfirmed creation retains its original error and explains reconcile wit
   assert.match(text(render({}, [])), /Original creation error/);
   assert.equal(find(render({}, []), n => n.type === 'button' && text(n) === 'Enable endpoint').props.disabled, true);
   assert.equal(find(render({}, []), n => n.type === 'button' && text(n) === 'Open CLI').props.disabled, true);
+  const controls = find(render({}, []), n => n.type === 'div' && n.props?.class === 'button-row wrap');
+  const resolve = find(controls, n => n.type === 'button' && text(n) === 'Resolve an absent creation');
+  assert.ok(resolve); assert.equal(resolve.props.disabled, false);
+  resolve.props.onClick();
+  assert.equal(find(render({}, []), n => n.type.fixtureComponent === 'ModalDialog.vue').props.title, 'Resolve an unconfirmed creation');
+  assert.deepEqual(calls, ['reconcile']); // Opening recovery alone does not clear state or create compute.
   delete deployment.creationError; // Old records still render actionable recovery instructions.
   assert.doesNotMatch(text(render({}, [])), /Original creation error/);
   assert.match(text(render({}, [])), /Resolve an absent creation/);
+  deployment.podIds = ['fixture-pod'];
+  assert.equal(find(render({}, []), n => n.type === 'button' && text(n) === 'Resolve an absent creation'), undefined);
 });
