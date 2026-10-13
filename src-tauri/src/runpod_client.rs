@@ -2,7 +2,7 @@ use crate::{
     cloud_provider::{CloudProvider, CloudResource, Hardware, ProviderId},
     credential_store::{CredentialStore, RUNPOD_KEY},
     error::{AppError, Result},
-    http_client::{decode, http_client, protocol_error, resource_id, status_error},
+    http_client::{bounded_body, decode, http_client, protocol_error, resource_id, status_error},
     model_catalog::{identifier, ModelAccess},
     types::Deployment,
 };
@@ -14,6 +14,94 @@ use std::sync::Arc;
 pub struct RunpodClient {
     http: Client,
     credentials: Arc<dyn CredentialStore>,
+}
+
+#[cfg(test)]
+#[path = "../tests/support/runpod_http.rs"]
+mod tests;
+
+async fn decode_creation(response: Response) -> Result<CloudResource> {
+    let status = response.status();
+    if status.is_success() {
+        return decode(response).await;
+    }
+    let mut error = status_error(status);
+    error.message = format!(
+        "Runpod: {} (HTTP {}).",
+        error.message.trim_end_matches('.'),
+        status.as_u16()
+    );
+    if matches!(status.as_u16(), 400 | 422) {
+        // Never persist upstream messages/values: they can echo the credential-bearing payload.
+        // Unknown, malformed or oversized bodies retain the known HTTP rejection status.
+        if let Ok(bytes) = bounded_body(response, 32 * 1024).await {
+            if let Ok(body) = serde_json::from_slice::<Value>(&bytes) {
+                let mut fields = std::collections::BTreeSet::new();
+                creation_error_fields(&body, 0, &mut fields);
+                if !fields.is_empty() {
+                    error.message.push_str(&format!(
+                        " Response references: {}.",
+                        fields.into_iter().collect::<Vec<_>>().join(", ")
+                    ));
+                }
+            }
+        }
+    }
+    Err(error)
+}
+
+fn creation_error_fields(
+    value: &Value,
+    depth: u8,
+    fields: &mut std::collections::BTreeSet<&'static str>,
+) {
+    if depth > 5 {
+        return;
+    }
+    match value {
+        Value::String(message) => {
+            for word in message.split(|c: char| !c.is_ascii_alphanumeric() && c != '_') {
+                let label = match word {
+                    "gpuTypeIds" => "GPU type",
+                    "gpuCount" => "GPU count",
+                    "dataCenterIds" => "location",
+                    "imageName" => "container image",
+                    "containerDiskInGb" => "temporary disk",
+                    "networkVolumeId" | "volumeInGb" | "volumeMountPath" => "model storage",
+                    "minRAMPerGPU" => "CPU memory",
+                    "minVCPUPerGPU" => "CPU cores",
+                    "ports" => "ports",
+                    "dockerEntrypoint" | "dockerStartCmd" => "startup command",
+                    "env" => "environment or secret references",
+                    _ => continue,
+                };
+                fields.insert(label);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                creation_error_fields(item, depth + 1, fields);
+            }
+        }
+        Value::Object(object) => {
+            for key in [
+                "error",
+                "message",
+                "errors",
+                "details",
+                "issues",
+                "path",
+                "instancePath",
+                "field",
+                "property",
+            ] {
+                if let Some(value) = object.get(key) {
+                    creation_error_fields(value, depth + 1, fields);
+                }
+            }
+        }
+        _ => {}
+    }
 }
 impl RunpodClient {
     pub fn new(credentials: Arc<dyn CredentialStore>) -> Result<Self> {
@@ -64,7 +152,7 @@ impl CloudProvider for RunpodClient {
     }
     async fn create(&self, payload: Value) -> Result<CloudResource> {
         // Deliberately no POST retry: an error may follow a successful creation.
-        decode(self.request(Method::POST, "/pods", Some(payload)).await?).await
+        decode_creation(self.request(Method::POST, "/pods", Some(payload)).await?).await
     }
     async fn list(&self) -> Result<Vec<CloudResource>> {
         decode(self.request(Method::GET, "/pods", None).await?).await

@@ -17,7 +17,7 @@ Closing a terminal or window leaves the Pod running. Retained network volumes su
 
 ## Current status
 
-The desktop workflow, provider setup, experimental model editor and creation-recovery diagnostics pass the **13 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **121 tests** (69 Rust, 19 Python, 33 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **Agent-run checks have used no paid Runpod or GPUtw operations.** Owner-led startup attempts have exposed access/configuration problems; no successful model inference or coding compatibility is recorded. Bundled profiles, imported AI suggestions and manually configured experiments remain unverified candidates.
+The desktop workflow, provider setup, experimental model editor and creation-recovery diagnostics pass the **13 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **126 tests** (73 Rust, 19 Python, 34 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **Agent-run checks have used no paid Runpod or GPUtw operations.** Owner-led startup attempts have exposed access/configuration problems; no successful model inference or coding compatibility is recorded. Bundled profiles, imported AI suggestions and manually configured experiments remain unverified candidates.
 
 Paid provisioning defaults to off. The maximum configurable GPU rate is **USD 10/hour**; storage is separate. A published model context limit describes its saved configuration, while the AI's usable context range estimates what might fit the proposed GPU setup. Neither is a measured performance guarantee.
 

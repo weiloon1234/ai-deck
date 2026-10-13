@@ -51,6 +51,27 @@ test('late hardware from a previous provider is discarded', async () => {
   assert.equal(deck.hardware.value, null);
 });
 
+test('paid confirmation closes on submission so rejected creation and preflight errors remain visible', async () => {
+  const deck = fixture(); const calls = [];
+  const setup = component('src/features/deployments/DeploymentsView.vue', deck, false).setup({}, { expose() {}, emit() {} });
+  deck.perform = async (_label, action) => {
+    assert.equal(setup.provisionConfirm.value, false);
+    try { return await action(); } catch (cause) { deck.error.value = cause; }
+  };
+  deck.call = async (command, args) => { calls.push({ command, args }); throw { message: 'Fixture creation rejection' }; };
+  setup.provisionConfirm.value = true; setup.dataCenter.value = 'fixture-dc';
+  await setup.provision();
+  assert.equal(setup.provisionConfirm.value, false);
+  assert.equal(deck.error.value.message, 'Fixture creation rejection');
+  assert.equal(calls.length, 1); assert.equal(calls[0].command, 'provision');
+  assert.equal(calls[0].args.request.acknowledgePaidCreation, true);
+  assert.equal(calls[0].args.request.dataCenterId, 'fixture-dc');
+  // An unrelated busy operation cannot consume confirmation or submit another request.
+  deck.busy.value = 'Fixture operation'; setup.provisionConfirm.value = true;
+  await setup.provision();
+  assert.equal(setup.provisionConfirm.value, true); assert.equal(calls.length, 1);
+});
+
 test('unconfirmed creation retains its original error and explains reconcile without issuing another creation', async () => {
   const deck = fixture(); const calls = [];
   const deployment = { id: 'fixture-deployment', provider: 'runpod', podName: 'ai-deck-fixture', podIds: [], stage: 'reconciliationRequired', createdAt: 100, deadlineAt: 3700,

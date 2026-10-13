@@ -32,8 +32,9 @@ async function refreshHardware() {
   });
 }
 async function provision() {
-  const id = await deck.perform('Provisioning compute', () => deck.call<string>('provision', { request: { provider: providerId.value, profileId: selectedProfileId.value, profileFingerprint: profile.value?.fingerprint, gpuType: gpu.value, dataCenterId: dataCenter.value, networkVolumeId: volume.value || null, acknowledgePaidCreation: true } }));
-  if (id) provisionConfirm.value = false;
+  if (busy.value) return;
+  provisionConfirm.value = false;
+  await deck.perform('Provisioning compute', () => deck.call<string>('provision', { request: { provider: providerId.value, profileId: selectedProfileId.value, profileFingerprint: profile.value?.fingerprint, gpuType: gpu.value, dataCenterId: dataCenter.value, networkVolumeId: volume.value || null, acknowledgePaidCreation: true } }));
 }
 async function finish() {
   await deck.perform('Finishing deployment', () => deck.call('finish', { id: deployment.value?.id }));
