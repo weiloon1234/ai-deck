@@ -1,8 +1,8 @@
 use crate::{
+    cloud_provider::CloudProvider,
     credential_store::CredentialStore,
     error::{AppError, Result},
     model_catalog::{self, ResolvedProfile},
-    runpod_client::RunpodApi,
     runtime_client::RuntimeApi,
     state_store::StateStore,
     terminal_process::TerminalManager,
@@ -14,7 +14,7 @@ pub type Notify = Arc<dyn Fn(&str, serde_json::Value) + Send + Sync>;
 pub struct AppCore {
     pub store: Arc<StateStore>,
     pub credentials: Arc<dyn CredentialStore>,
-    pub provider: Arc<dyn RunpodApi>,
+    pub provider: Arc<dyn CloudProvider>,
     pub runtime: Arc<dyn RuntimeApi>,
     pub terminals: Arc<TerminalManager>,
     pub operations: tokio::sync::Mutex<()>,

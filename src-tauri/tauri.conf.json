@@ -32,7 +32,8 @@
     "category": "DeveloperTool",
     "shortDescription": "Local coding sessions with temporary Runpod inference",
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "-"
     },
     "icon": [
       "icons/icon.icns",

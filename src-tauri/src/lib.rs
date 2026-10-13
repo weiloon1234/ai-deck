@@ -1,5 +1,6 @@
 pub mod app_core;
 pub mod cli_adapters;
+pub mod cloud_provider;
 pub mod codex_model_analyzer;
 pub mod commands;
 pub mod credential_store;
@@ -7,6 +8,7 @@ pub mod deployment_reconciler;
 pub mod deployment_service;
 pub mod enabled_endpoint_service;
 pub mod error;
+pub mod http_client;
 pub mod hugging_face_client;
 pub mod model_analysis;
 pub mod model_catalog;

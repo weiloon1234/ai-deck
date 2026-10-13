@@ -11,5 +11,6 @@ Inherits [root guidance](../AGENTS.md). This directory contains UI and its nativ
 - Preserve the distinction between published model limits and AI estimates. Use the shared model-details/hardware components in Models and deployment preparation. Provider quotes need their timestamp and storage exclusion.
 - Use established styles in `shared/styles.css`, accessible labels and readable empty/busy/error states. Check the supported desktop window widths. Keep implementation details out of ordinary user flows unless they help a decision.
 - Browser preview is intentionally unable to invoke native commands. Do not bypass that boundary for a visual test or ship test account/state fixtures in the production view.
+- Provider/document links go through `deck.openExternal` and the native URL allowlist. When adding a link shape, update and test that native boundary as well as the rendered href; never allow arbitrary external URLs to make a link work.
 
-For behavioral UI changes, reuse `tests/ui/component_fixture.cjs` and the existing compiler-based tests; do not install another test framework. Run `npm run test:ui` and `npm run build`. Cross-layer changes also follow the root validation workflow.
+For behavioral UI changes, read [test guidance](../tests/AGENTS.md) and reuse `tests/ui/component_fixture.cjs` and the existing compiler-based tests; do not install another test framework. Run `npm run test:ui` and `npm run build`. Cross-layer changes also follow the root validation workflow.

@@ -1,10 +1,10 @@
 use crate::{
+    cloud_provider::Hardware,
     error::{AppError, Result},
     hugging_face_client::HubModel,
     model_catalog::{
         parse_catalog, CatalogDocument, ModelProfile, ResolvedProfile, RuntimeProfile, Sampling,
     },
-    runpod_client::Hardware,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

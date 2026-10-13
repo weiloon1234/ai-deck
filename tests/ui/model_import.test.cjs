@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const vue = require('vue');
-const { component, find } = require('./component_fixture.cjs');
+const { component, find, text } = require('./component_fixture.cjs');
 
 function fixture() {
   const calls = [];
@@ -34,11 +34,6 @@ function savedModel() {
     quotes: [{ gpuType: 'Example GPU', gpuCount: 1, hourlyUsd: 12.5, availableRegions: [] }],
     analyzedAt: 100, pricesCheckedAt: 100, analyzerVersion: 'fixture', runtime: { version: '0.31.0' },
   };
-}
-function text(node) {
-  if (typeof node === 'string') return node;
-  if (!node || typeof node !== 'object') return '';
-  return Array.isArray(node.children) ? node.children.map(text).join(' ') : text(node.children);
 }
 test('suggestion shows context range, dated price and over-budget status; use selects the saved profile', () => {
   const deck = fixture(); const model = savedModel();
@@ -98,4 +93,58 @@ test('price refresh reuses analysis, while explicit reanalysis requests an updat
     { command: 'refresh_model_prices', args: { id: model.id } },
     { command: 'import_hugging_face_model', args: { url: model.sourceUrl, reanalyze: true } },
   ]);
+});
+test('library total stays stable while searching and excludes imported catalog duplicates', () => {
+  const deck = fixture(); const model = savedModel();
+  deck.state.value.importedModels = [model];
+  deck.snapshot.value.catalog = [
+    { model: { id: model.id, displayName: 'Imported', repository: 'org/repo' } },
+    { model: { id: 'bundled', displayName: 'Bundled model', repository: 'publisher/bundled' } },
+  ];
+  const setup = component('src/features/models/ModelsView.vue', deck, false).setup({}, { expose() {} });
+  assert.equal(setup.libraryCount.value, 2);
+  setup.search.value = 'publisher';
+  assert.equal(setup.imported.value.length, 0);
+  assert.equal(setup.profiles.value.length, 1);
+  assert.equal(setup.libraryCount.value, 2);
+});
+
+test('empty model search can be cleared to restore matching models', () => {
+  const deck = fixture();
+  deck.state.value.importedModels = [savedModel()];
+  const render = component('src/features/models/ModelsView.vue', deck).setup({}, {});
+  let tree = render({}, []);
+  find(tree, n => n.type === 'input' && n.props?.type === 'search').props['onUpdate:modelValue']('no-matching-model');
+  tree = render({}, []);
+  assert.equal(find(tree, n => n.type?.fixtureComponent === 'ModelSuggestion.vue'), undefined);
+  find(tree, n => n.type === 'button' && n.children === 'Clear search').props.onClick();
+  tree = render({}, []);
+  assert.ok(find(tree, n => n.type?.fixtureComponent === 'ModelSuggestion.vue'));
+});
+test('deployment telemetry appears only for an active Pod while creation controls retain their gates', () => {
+  const deck = fixture();
+  Object.assign(deck, {
+    profile: vue.ref(null), hardware: vue.ref(null), activeDeployment: vue.ref(null),
+    error: vue.ref(null), connected: vue.ref(false), clock: vue.ref(100),
+  });
+  Object.assign(deck.state.value, { sessions: [], deployments: [] });
+  const render = component('src/features/deployments/DeploymentsView.vue', deck).setup({}, {});
+  let tree = render({}, []);
+  assert.equal(find(tree, n => n.props?.class === 'stats-grid'), undefined);
+  const provision = find(tree, n => n.type === 'button' && text(n).includes('Provision Runpod'));
+  assert.equal(provision.props.disabled, true);
+  deck.activeDeployment.value = {
+    id: 'fixture-deployment', stage: 'ready', createdAt: 40, deadlineAt: 500, hourlyUsd: 2,
+    profile: { model: { displayName: 'Fixture model', servedModel: 'fixture', maxSessions: 1 } },
+    podIds: [], message: 'Fixture only',
+  };
+  tree = render({}, []);
+  assert.ok(find(tree, n => n.props?.class === 'stats-grid'));
+  assert.equal(find(tree, n => n.type === 'button' && n.children === 'Open CLI').props.disabled, true);
+  let workflow = find(tree, n => n.props?.class === 'workflow');
+  assert.ok(find(workflow, n => n.type === 'div' && n.props?.class === 'current' && text(n).includes('Enable endpoint')));
+  deck.connected.value = true;
+  tree = render({}, []);
+  workflow = find(tree, n => n.props?.class === 'workflow');
+  assert.ok(find(workflow, n => n.type === 'div' && n.props?.class === 'current' && text(n).includes('Open your CLI')));
 });

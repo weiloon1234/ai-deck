@@ -1,11 +1,11 @@
 use crate::{
     app_core::AppCore,
     cli_adapters,
+    cloud_provider::Hardware,
     credential_store::RUNPOD_KEY,
     deployment_service::validate_policy,
     error::{AppError, Result},
     model_catalog,
-    runpod_client::Hardware,
     session_service::validate_project,
     state_store::atomic_write,
     types::*,
@@ -266,10 +266,9 @@ pub async fn refresh_model_prices(core: Core<'_>, id: String) -> Result<()> {
 pub fn remove_imported_model(core: Core<'_>, id: String) -> Result<()> {
     core.remove_imported_model(&id)
 }
-#[tauri::command]
-pub fn open_external(url: String) -> Result<()> {
+fn validated_external_url(url: &str) -> Result<reqwest::Url> {
     let parsed =
-        reqwest::Url::parse(&url).map_err(|_| AppError::invalid("Invalid documentation link."))?;
+        reqwest::Url::parse(url).map_err(|_| AppError::invalid("Invalid documentation link."))?;
     let allowed = parsed.scheme() == "https"
         && parsed.username().is_empty()
         && parsed.password().is_none()
@@ -277,12 +276,20 @@ pub fn open_external(url: String) -> Result<()> {
         && match parsed.host_str() {
             Some("console.runpod.io") => matches!(parsed.path(), "/pods" | "/user/settings"),
             Some("huggingface.co") => {
-                parsed.path().trim_start_matches('/').split('/').count() == 2
-                    && parsed
-                        .path()
-                        .trim_start_matches('/')
-                        .split('/')
-                        .all(model_catalog::identifier)
+                let parts: Vec<_> = parsed.path().trim_start_matches('/').split('/').collect();
+                match parts.as_slice() {
+                    [organization, repository] => {
+                        model_catalog::identifier(organization)
+                            && model_catalog::identifier(repository)
+                    }
+                    [organization, repository, "blob", revision, "config.json"] => {
+                        model_catalog::identifier(organization)
+                            && model_catalog::identifier(repository)
+                            && revision.len() == 40
+                            && revision.bytes().all(|b| b.is_ascii_hexdigit())
+                    }
+                    _ => false,
+                }
             }
             _ => false,
         }
@@ -293,6 +300,11 @@ pub fn open_external(url: String) -> Result<()> {
             "This link is outside the app's supported provider pages.",
         ));
     }
+    Ok(parsed)
+}
+#[tauri::command]
+pub fn open_external(url: String) -> Result<()> {
+    let parsed = validated_external_url(&url)?;
     #[cfg(target_os = "macos")]
     {
         std::process::Command::new("/usr/bin/open")
@@ -372,4 +384,47 @@ pub async fn request_quit(
     app.state::<ExitControl>().0.store(true, Ordering::Release);
     app.exit(0);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validated_external_url;
+
+    const REVISION: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    #[test]
+    fn external_links_allow_provider_pages_and_pinned_model_config() {
+        for url in [
+            "https://console.runpod.io/pods".to_owned(),
+            "https://console.runpod.io/user/settings".to_owned(),
+            "https://huggingface.co/fixture/coding-model".to_owned(),
+            format!("https://huggingface.co/fixture/coding-model/blob/{REVISION}/config.json"),
+        ] {
+            assert_eq!(validated_external_url(&url).unwrap().as_str(), url);
+        }
+    }
+
+    #[test]
+    fn external_links_reject_unpinned_configs_and_unapproved_urls() {
+        for url in [
+            "not a URL".to_owned(),
+            "http://huggingface.co/fixture/coding-model".to_owned(),
+            "https://huggingface.co.evil/fixture/coding-model".to_owned(),
+            "https://user@huggingface.co/fixture/coding-model".to_owned(),
+            "https://huggingface.co:8443/fixture/coding-model".to_owned(),
+            "https://huggingface.co/fixture/coding-model?token=fake".to_owned(),
+            "https://huggingface.co/fixture/coding-model#config".to_owned(),
+            "https://console.runpod.io/account".to_owned(),
+            "https://huggingface.co/fixture/coding-model/blob/main/config.json".to_owned(),
+            format!("https://huggingface.co/fixture/coding-model/tree/{REVISION}/config.json"),
+            format!("https://huggingface.co/fixture/coding-model/blob/{REVISION}/README.md"),
+            format!(
+                "https://huggingface.co/fixture/coding-model/blob/{REVISION}/config.json/extra"
+            ),
+            format!("https://huggingface.co/fixture/coding-model/blob/{REVISION}z/config.json"),
+            format!("https://huggingface.co/fixture%2fcoding-model/blob/{REVISION}/config.json"),
+        ] {
+            assert!(validated_external_url(&url).is_err(), "accepted {url}");
+        }
+    }
 }

@@ -161,9 +161,10 @@ def main():
                         if ready:
                             report("verifying", "awaiting_inference_verification")
                     except Exception:
-                        if time.monotonic() >= deadline:
-                            report("failed", "load_timeout")
-                            break
+                        pass
+                    if not ready and time.monotonic() >= deadline:
+                        report("failed", "load_timeout")
+                        break
             if process.poll() is None:
                 os.killpg(process.pid, signal.SIGTERM)
                 try:

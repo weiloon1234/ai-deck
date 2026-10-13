@@ -1,6 +1,6 @@
 # Model compatibility and owner-led cloud tests
 
-Status: **No paid/live cloud tests performed.** Updated 6 October 2026.
+Status: **No paid/live cloud tests performed.** Updated 8 October 2026.
 
 The app implements the Codex and experimental Claude launch paths. It does not yet have a successful end-to-end self-hosted coding report for either CLI. Public Hub availability, a pinned image, localhost authentication tests, and compiled source are not substitutes for that report.
 
@@ -37,7 +37,7 @@ Record the exact fingerprint shown by the app, profile/CLI versions, actual GPU 
 | `context_limit` | Oversized input fails clearly without fallback or corruption | Pending owner test |
 | `subscription_isolation` | Normal subscription CLI works alongside app session; original files unchanged | Pending owner test |
 | `invalid_credential_no_fallback` | Bad inference credential fails; no subscription/model fallback | Pending owner test |
-| `two_sessions` | Two distinct local projects and conversations; tested capacity | Pending owner test |
+| `two_sessions` (multi-session profiles) | Two distinct local projects and conversations; tested capacity | Pending owner test |
 | `helper_models` (Claude only) | Helper requests use the selected gateway/model and complete correctly | Pending owner test |
 
 Also complete the project plan's live lifecycle cases: public cold download, valid/invalid gated access, retained revision reuse, unavailable GPU, image/load/OOM failures, interruption during startup, reconnect/sleep/crash, lost API responses, and repeated verified termination. Mocked tests cover local controller behavior; they cannot establish the provider's actual behavior.
@@ -49,6 +49,8 @@ For every paid test, finish the deployment and confirm deletion in Runpod. Recor
 Copy the test results into a new Markdown report under `docs/compatibility-reports/` after testing. Include observations, failures and limits; never turn an incomplete run into a passing report.
 
 A profile's `evidence` item contains `cli` (`codex` or `claude`), the exact detected `cliVersion` string, actual `gpuType`, current `fingerprint`, `testedAt`, the report location, and its completed `checks` list. The required check names are authoritative in `model_catalog.rs`. The frontend does not manufacture evidence.
+
+All profiles require the coding, authentication and isolation checks. `two_sessions` is required only when `maxSessions` is greater than one; both bundled candidates allow two, while imported suggestions currently allow one. Claude also requires `helper_models` at either capacity. Omitting an inapplicable concurrent-session check does not establish any untested multi-session capacity.
 
 The fingerprint includes the immutable model configuration, runtime configuration and startup supervisor source. CLI version and GPU type must also match. A change invalidates old evidence; it never rewrites saved deployments. Imported catalogs must pass native semantic validation as well as the generated schema. Evidence is the owner's recorded attestation, not a cryptographic claim that a report was executed by the app.
 

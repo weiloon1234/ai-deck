@@ -17,7 +17,7 @@ async function launch() {
 </script>
 <template>
   <ModalDialog title="Open a coding session" :busy="!!busy" @close="emit('close')">
-    <div v-if="!connected" class="notice warning">Enable a ready endpoint first. No connected CLI can open without it.</div>
+    <div v-if="!connected" class="notice warning">Enable a ready endpoint first. <button type="button" class="inline-button" @click="deck.view.value = 'deployments'; emit('close')">Go to Deployment</button> to check its status and enable it.</div>
     <form @submit.prevent="launch"><div class="cli-choices"><label :class="{ selected: cli === 'codex' }"><input v-model="cli" type="radio" value="codex" /><strong>Codex</strong><span>Responses API</span></label><label :class="{ selected: cli === 'claude' }"><input v-model="cli" type="radio" value="claude" :disabled="!state?.settings.policy.claudeEnabled" /><strong>Claude Code</strong><span>Experimental</span></label></div>
       <label>Local project<select v-model="projectId" required><option value="" disabled>Choose a project</option><option v-for="project in state?.projects" :key="project.id" :value="project.id">{{ project.name }} · {{ project.path }}</option></select></label>
       <button v-if="!state?.projects.length" type="button" class="text-button" :disabled="!!busy" @click="deck.perform('Adding project', async () => { const project = await deck.call<{ id: string } | null>('choose_project'); if (project) projectId = project.id; })">+ Add a local project</button>

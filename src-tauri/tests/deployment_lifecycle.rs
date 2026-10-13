@@ -7,6 +7,41 @@ use std::sync::atomic::Ordering;
 use support::*;
 
 #[tokio::test]
+async fn rejected_provider_preparation_leaves_no_intent_or_inference_credential() {
+    let f = Fixture::new();
+    f.authorize_mock();
+    f.provider.reject_prepare.store(true, Ordering::SeqCst);
+    assert_eq!(
+        f.core.provision(f.request()).await.unwrap_err().code,
+        "invalid_input"
+    );
+    assert!(f.core.store.read().unwrap().deployments.is_empty());
+    assert!(f.credentials.is_empty());
+    assert_eq!(f.provider.creates.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn provider_ownership_denial_blocks_enable_reconciliation_and_deletion() {
+    let f = Fixture::new();
+    let id = f.ready().await;
+    f.provider.deny_ownership.store(true, Ordering::SeqCst);
+    assert_eq!(
+        f.core.enable(&id).await.unwrap_err().code,
+        "endpoint_unavailable"
+    );
+    f.core.reconcile_all().await.unwrap();
+    assert_eq!(
+        f.core.deployment(&id).unwrap().stage,
+        DeploymentStage::ReconciliationRequired
+    );
+    assert_eq!(
+        f.core.finish(&id).await.unwrap_err().code,
+        "ownership_mismatch"
+    );
+    assert_eq!(f.provider.deletes.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn transient_verification_blocks_routing_without_deleting_and_then_recovers() {
     for code in ["rate_limit", "provider_unavailable", "network_unavailable"] {
         let f = Fixture::new();
@@ -278,7 +313,7 @@ async fn retained_cache_and_runtime_payload_never_receive_management_credentials
         Some("retained-volume")
     );
     assert_eq!(f.provider.deletes.load(Ordering::SeqCst), 1);
-    // RunpodApi intentionally has no network-volume deletion operation.
+    // CloudProvider intentionally has no network-volume deletion operation.
 }
 #[tokio::test]
 async fn failed_inference_blocks_enable_and_preserves_original_failure_after_cleanup() {
@@ -445,10 +480,8 @@ async fn gated_profile_payload_uses_only_a_secret_reference() {
     let id = f.ready().await;
     let mut d = f.core.deployment(&id).unwrap();
     d.profile.model.access = ai_deck::model_catalog::ModelAccess::Gated;
-    assert!(
-        ai_deck::deployment_service::create_payload(&d, "owner", "fixture-token", None).is_err()
-    );
-    let payload = ai_deck::deployment_service::create_payload(
+    assert!(ai_deck::runpod_client::create_payload(&d, "owner", "fixture-token", None).is_err());
+    let payload = ai_deck::runpod_client::create_payload(
         &d,
         "owner",
         "fixture-token",

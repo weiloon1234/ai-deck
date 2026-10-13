@@ -1,6 +1,8 @@
 # Reusable vLLM runtime
 
-The pinned upstream image is defined once in `model-catalog/catalog.json`. Both candidate models reference it. A separate Docker image is not required: the native provisioner passes `launcher.py` as one structured Python argument in `dockerStartCmd`, with `dockerEntrypoint` set to `python3 -u -c`. No shell interpolates model arguments or credentials.
+The pinned upstream image is defined once in `model-catalog/catalog.json`. Both candidate models reference it. Runpod needs no separate Docker image: its native adapter passes `launcher.py` as one structured Python argument in `dockerStartCmd`, with `dockerEntrypoint` set to `python3 -u -c`. No shell interpolates model arguments or credentials.
+
+The optional `Dockerfile` packages that same supervisor for providers such as GPUtw that preserve the image's `ENTRYPOINT`. It clears the inherited `CMD` and installs no packages. The directory's `.dockerignore` includes only the recipe and supervisor in the build context. `scripts/prepare_runtime_image.py` selects a catalog runtime, supplies its pinned base digest and prints build arguments with an identity derived from the base and all recipe sources. It does not run Docker, pull/build/publish an image or enable a provider. See [wrapper preparation](../../docs/provider-integration.md#preparing-the-wrapper-image-locally) for usage and unresolved deployment gates.
 
 The supervisor exposes a small authenticated status service, checks access to a weight at the immutable revision, checks the catalog’s `minCacheGb` requirement against free space plus complete files already cached for that revision, downloads missing files to the selected revision cache, and starts vLLM directly. Inference streams through vLLM's own authenticated API; there is no response translation layer.
 

@@ -1,11 +1,11 @@
 mod support;
 use ai_deck::{
+    cloud_provider::{CloudProvider, GpuType},
     codex_model_analyzer::{AnalysisInput, ModelAnalyzer},
     error::{AppError, Result},
     hugging_face_client::{parse_metadata, HubModel, HuggingFaceApi, ModelSource},
     model_analysis::{quotes, ModelAnalysis},
     model_catalog::{builtin_catalog, ModelAccess},
-    runpod_client::{GpuType, RunpodApi},
     state_store::StateStore,
 };
 use async_trait::async_trait;

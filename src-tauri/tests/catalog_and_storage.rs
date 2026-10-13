@@ -40,6 +40,57 @@ fn only_exact_evidence_survives_configuration_or_cli_changes() {
     ));
 }
 #[test]
+fn compatibility_evidence_matches_session_capacity_and_keeps_core_checks_required() {
+    let checks: Vec<_> = REQUIRED_CODING_CHECKS
+        .iter()
+        .copied()
+        .filter(|check| *check != "two_sessions")
+        .collect();
+    for max_sessions in [1, 2] {
+        let mut value = catalog();
+        value["profiles"][0]["maxSessions"] = max_sessions.into();
+        let original = parse_catalog(&value.to_string()).unwrap().remove(0);
+        value["profiles"][0]["evidence"] = serde_json::json!([{"cli":"codex","cliVersion":"codex-cli 0.160.0","gpuType":original.model.gpu_types[0],"fingerprint":original.fingerprint,
+            "testedAt":"fixture-only","checks":checks,"report":"fixture-only; not distributed"}]);
+        let attested = parse_catalog(&value.to_string()).unwrap().remove(0);
+        assert_eq!(
+            attested.is_validated(
+                &CliKind::Codex,
+                "codex-cli 0.160.0",
+                &original.model.gpu_types[0]
+            ),
+            max_sessions == 1
+        );
+        value["profiles"][0]["evidence"][0]["checks"] = serde_json::json!(checks
+            .iter()
+            .filter(|check| **check != "streaming")
+            .collect::<Vec<_>>());
+        assert!(!parse_catalog(&value.to_string()).unwrap()[0].is_validated(
+            &CliKind::Codex,
+            "codex-cli 0.160.0",
+            &original.model.gpu_types[0]
+        ));
+        if max_sessions == 1 {
+            value["profiles"][0]["evidence"][0]["cli"] = "claude".into();
+            value["profiles"][0]["evidence"][0]["cliVersion"] = "2.1.289 (Claude Code)".into();
+            value["profiles"][0]["evidence"][0]["checks"] = serde_json::json!(checks);
+            assert!(!parse_catalog(&value.to_string()).unwrap()[0].is_validated(
+                &CliKind::Claude,
+                "2.1.289 (Claude Code)",
+                &original.model.gpu_types[0]
+            ));
+            let mut helper_checks = checks.clone();
+            helper_checks.push("helper_models");
+            value["profiles"][0]["evidence"][0]["checks"] = serde_json::json!(helper_checks);
+            assert!(parse_catalog(&value.to_string()).unwrap()[0].is_validated(
+                &CliKind::Claude,
+                "2.1.289 (Claude Code)",
+                &original.model.gpu_types[0]
+            ));
+        }
+    }
+}
+#[test]
 fn imports_reject_mutable_revisions_unpinned_images_and_unsafe_caches() {
     for (pointer, bad) in [
         ("/profiles/0/revision", "main"),
@@ -83,6 +134,42 @@ fn corrupt_state_is_preserved_and_second_writer_is_refused() {
     );
     drop(store);
     assert!(StateStore::open(dir.path().into()).is_ok());
+}
+#[test]
+fn malformed_saved_installation_identity_is_rejected_without_rewriting_state() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("state.json");
+    let original = LocalState::default();
+    for installation_id in [
+        "",
+        "short",
+        "1234567é",
+        "invalid-installation-identity",
+        "00000000-0000-0000-0000-00000000000g",
+        "12345678123442349234123456789abc",
+        "{12345678-1234-4234-9234-123456789abc}",
+        "urn:uuid:12345678-1234-4234-9234-123456789abc",
+    ] {
+        let mut state = original.clone();
+        state.installation_id = installation_id.into();
+        let bytes = serde_json::to_vec(&state).unwrap();
+        std::fs::write(&path, &bytes).unwrap();
+        let error = StateStore::open(dir.path().into())
+            .err()
+            .expect("Malformed saved installation identity must fail without panicking.");
+        assert_eq!(error.code, "state_corrupt");
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    }
+    for installation_id in [
+        original.installation_id.clone(),
+        original.installation_id.to_ascii_uppercase(),
+    ] {
+        let mut state = original.clone();
+        state.installation_id = installation_id.clone();
+        std::fs::write(&path, serde_json::to_vec(&state).unwrap()).unwrap();
+        let reopened = StateStore::open(dir.path().into()).unwrap();
+        assert_eq!(reopened.read().unwrap().installation_id, installation_id);
+    }
 }
 #[test]
 fn failed_persistence_does_not_publish_an_uncommitted_state() {

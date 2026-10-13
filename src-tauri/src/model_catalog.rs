@@ -127,6 +127,7 @@ impl ResolvedProfile {
                 && !e.report.is_empty()
                 && REQUIRED_CODING_CHECKS
                     .iter()
+                    .filter(|check| **check != "two_sessions" || self.model.max_sessions != 1)
                     .all(|check| e.checks.iter().any(|v| v == check))
                 && (*cli != CliKind::Claude || e.checks.iter().any(|v| v == "helper_models"))
         })

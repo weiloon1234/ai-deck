@@ -1,6 +1,5 @@
 use crate::{
     app_core::AppCore,
-    deployment_service::owns,
     error::{AppError, Result},
     types::*,
 };
@@ -34,8 +33,9 @@ impl AppCore {
             .first()
             .ok_or_else(|| AppError::invalid("Deployment has no Pod."))?;
         match self.provider.get(pod_id).await {
-            Ok(Some(pod)) if owns(&deployment, &owner, &pod) && pod.desired_status == "RUNNING" => {
-            }
+            Ok(Some(pod))
+                if self.provider.owns(&deployment, &owner, &pod)
+                    && pod.desired_status == "RUNNING" => {}
             Ok(None) => {
                 self.stop_deployment_sessions(id)?;
                 self.confirm_terminated(id, "Runpod confirmed the enabled Pod is absent.")?;

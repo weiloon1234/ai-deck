@@ -12,8 +12,9 @@ function component(file, deck, inlineTemplate = true) {
   const script = compileScript(descriptor, { id: file, inlineTemplate });
   const code = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const scope = { exports: {}, require(id) {
-    if (id === 'vue') return { ...vue, onMounted() {}, onUnmounted() {} };
-    if (id.endsWith('/useDeck')) return { useDeck: () => deck, money: value => `$${value.toFixed(2)}` };
+    // VNode fixtures do not mount DOM directives; browser checks cover those.
+    if (id === 'vue') return { ...vue, onMounted() {}, onUnmounted() {}, withDirectives: vnode => vnode };
+    if (id.endsWith('/useDeck')) return { useDeck: () => deck, money: value => `$${value.toFixed(2)}`, elapsed: value => `${value}s`, stageLabel: value => value };
     if (id.endsWith('.vue')) return { default: { fixtureComponent: path.basename(id) } };
     throw Error(`Unexpected dependency: ${id}`);
   } };
@@ -28,4 +29,10 @@ function find(vnode, predicate) {
   }
 }
 
-module.exports = { component, find };
+function text(node) {
+  if (typeof node === 'string') return node;
+  if (!node || typeof node !== 'object') return '';
+  return Array.isArray(node.children) ? node.children.map(text).join(' ') : text(node.children);
+}
+
+module.exports = { component, find, text };

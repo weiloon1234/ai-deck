@@ -1,12 +1,11 @@
 use crate::{
     app_core::{estimated_cost, AppCore},
+    cloud_provider::Hardware,
     credential_store::inference_credential,
     error::{AppError, Result},
-    model_catalog::{identifier, ModelAccess},
-    runpod_client::{Hardware, Pod},
+    model_catalog::ModelAccess,
     types::*,
 };
-use serde_json::{json, Value};
 
 impl AppCore {
     pub async fn provision(&self, request: ProvisionRequest) -> Result<String> {
@@ -80,7 +79,6 @@ impl AppCore {
         let created = now();
         let credential_ref = format!("inference-{id}");
         let token = inference_credential();
-        self.credentials.set(&credential_ref, &token)?;
         let deployment = Deployment {
             id: id.clone(),
             pod_name: format!("ai-deck-{}-{id}", &state.installation_id[..8]),
@@ -108,12 +106,13 @@ impl AppCore {
         };
         let mut deployment = deployment;
         deployment.gpu_count = deployment.profile.model.gpu_count;
-        let payload = create_payload(
+        let payload = self.provider.prepare_create(
             &deployment,
             &state.installation_id,
             &token,
             state.settings.hugging_face_secret.as_deref(),
         )?;
+        self.credentials.set(&deployment.credential_ref, &token)?;
         if let Err(error) = self.store.update(|s| {
             s.deployments.push(deployment.clone());
             Ok(())
@@ -133,7 +132,10 @@ impl AppCore {
                     d.pod_ids = vec![pod.id.clone()];
                     Ok(())
                 })?;
-                if !owns(&deployment, &state.installation_id, &pod) {
+                if !self
+                    .provider
+                    .owns(&deployment, &state.installation_id, &pod)
+                {
                     self.stage(
                         &id,
                         DeploymentStage::ReconciliationRequired,
@@ -228,7 +230,7 @@ impl AppCore {
             };
             deployment.pod_ids = pods
                 .into_iter()
-                .filter(|p| owns(&deployment, &owner, p))
+                .filter(|p| self.provider.owns(&deployment, &owner, p))
                 .map(|p| p.id)
                 .collect();
             if deployment.pod_ids.is_empty() {
@@ -254,7 +256,7 @@ impl AppCore {
         for pod_id in &deployment.pod_ids {
             match self.provider.get(pod_id).await {
                 Ok(None) => continue,
-                Ok(Some(pod)) if owns(&deployment, &owner, &pod) => {
+                Ok(Some(pod)) if self.provider.owns(&deployment, &owner, &pod) => {
                     let _ = self.provider.delete(pod_id).await;
                 }
                 Ok(Some(_)) => {
@@ -322,7 +324,7 @@ impl AppCore {
             .list()
             .await?
             .iter()
-            .any(|p| owns(&d, &owner, p))
+            .any(|p| self.provider.owns(&d, &owner, p))
         {
             return Err(AppError::invalid(
                 "A matching Pod exists. Reconcile and Finish it.",
@@ -353,15 +355,6 @@ pub fn validate_policy(p: &Policy) -> Result<()> {
         return Err(AppError::invalid("Paid provisioning requires a total budget, maximum lifetime, and acknowledgement of the offline cleanup limitation."));
     }
     Ok(())
-}
-// Ownership keys are a persistent protocol shared with already-running Pods.
-pub fn owns(d: &Deployment, owner: &str, pod: &Pod) -> bool {
-    pod.name == d.pod_name
-        && pod.image_name == d.profile.runtime.image
-        && pod.env.get("RUNPOD_DECK_OWNER").map(String::as_str) == Some(owner)
-        && pod.env.get("RUNPOD_DECK_DEPLOYMENT").map(String::as_str) == Some(d.id.as_str())
-        && pod.network_volume_id.as_deref().filter(|s| !s.is_empty())
-            == d.network_volume_id.as_deref()
 }
 fn quote(
     hardware: &Hardware,
@@ -415,35 +408,4 @@ fn quote(
         ));
     }
     Ok(price)
-}
-pub fn create_payload(
-    d: &Deployment,
-    owner: &str,
-    token: &str,
-    hf_secret: Option<&str>,
-) -> Result<Value> {
-    let p = &d.profile.model;
-    let r = &d.profile.runtime;
-    let config = json!({"repository":p.repository,"revision":p.revision,"inferencePort":r.inference_port,"statusPort":r.status_port,
-        "downloadTimeoutSeconds":r.download_timeout_seconds,"loadTimeoutSeconds":r.load_timeout_seconds,"minCacheGb":p.min_cache_gb,"arguments":d.profile.arguments()});
-    let mut env = json!({"VLLM_API_KEY":token,"RUNPOD_DECK_OWNER":owner,"RUNPOD_DECK_DEPLOYMENT":d.id,
-        "RUNPOD_DECK_RUNTIME":config.to_string(),"HF_HOME":"/tmp/ai-deck-hf","HF_HUB_CACHE":p.model_cache_path,
-        "HF_HUB_DISABLE_PROGRESS_BARS":"1","HF_HUB_DISABLE_TELEMETRY":"1","VLLM_NO_USAGE_STATS":"1",
-        "VLLM_CACHE_ROOT":format!("{}/{}",p.compile_cache_path,d.profile.fingerprint),"PYTHONUNBUFFERED":"1"});
-    if p.access != ModelAccess::Public {
-        let name = hf_secret
-            .filter(|s| identifier(s))
-            .ok_or_else(|| AppError::invalid("Set a valid Hugging Face Runpod secret name."))?;
-        env["HF_TOKEN"] = json!(format!("{{{{ RUNPOD_SECRET_{name} }}}}"));
-    }
-    let mut payload = json!({"name":d.pod_name,"imageName":r.image,"cloudType":"SECURE","computeType":"GPU",
-        "gpuTypeIds":[d.gpu_type],"gpuCount":d.gpu_count,"dataCenterIds":[d.data_center_id],"interruptible":false,
-        "containerDiskInGb":p.disk_gb,"volumeInGb":0,"volumeMountPath":"/workspace",
-        "minRAMPerGPU":p.min_cpu_ram_gb.div_ceil(d.gpu_count),"minVCPUPerGPU":4,
-        "ports":[format!("{}/http",r.inference_port),format!("{}/http",r.status_port)],
-        "dockerEntrypoint":["python3","-u","-c"],"dockerStartCmd":[include_str!("../../containers/vllm-runtime/launcher.py")],"env":env});
-    if let Some(id) = &d.network_volume_id {
-        payload["networkVolumeId"] = json!(id);
-    }
-    Ok(payload)
 }

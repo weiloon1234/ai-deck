@@ -1,0 +1,4 @@
+# Send only the recipe and supervisor to the Docker builder.
+*
+!Dockerfile
+!launcher.py

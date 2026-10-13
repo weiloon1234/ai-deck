@@ -58,7 +58,7 @@ const prettyConfig = computed(() => JSON.stringify(config.value, null, 2));
 </script>
 <template>
   <section class="model-details">
-    <div class="eyebrow">HUGGING FACE · SAVED METADATA</div><h3>Model details</h3>
+    <h3>Model details</h3><p class="source-note">HUGGING FACE · SAVED METADATA</p>
     <div class="model-metrics"><div><strong :title="parameterCount?.toLocaleString()">{{ parameters }}</strong><span>Parameters reported by Hugging Face</span></div></div>
     <div class="context-range model-context"><strong>{{ context ? `${context.value.toLocaleString()} tokens` : 'Not provided' }}</strong><span>Published context limit · saved config</span></div>
     <p class="small muted section-gap">Input and output share the context window. The usable range on your GPU may be lower. Scaling settings are shown separately.</p>

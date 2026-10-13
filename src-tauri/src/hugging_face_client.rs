@@ -1,7 +1,7 @@
 use crate::{
     error::{AppError, Result},
+    http_client::{bounded_body, http_client},
     model_catalog::{identifier, ModelAccess},
-    runpod_client::{bounded_body, http_client},
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

@@ -17,11 +17,28 @@ Closing a terminal or window leaves the Pod running. Retained network volumes su
 
 ## Current status
 
-The desktop workflow and local regression checks are implemented. **No paid Runpod tests have been performed.** Bundled profiles and imported AI suggestions are unverified candidates, not proven runnable configurations. A successful real-subscription model analysis and real coding sessions on the chosen GPU remain owner-operated checks.
+The desktop workflow, UI refinement and provider boundary refactor pass the **11 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **92 tests** (53 Rust, 19 Python, 20 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **No paid Runpod or GPUtw tests have been performed.** Bundled profiles and imported AI suggestions are unverified candidates, not proven runnable configurations. A successful real-subscription model analysis and real coding sessions on the chosen GPU remain owner-operated checks.
 
 Paid provisioning defaults to off. The maximum configurable GPU rate is **USD 10/hour**; storage is separate. A published model context limit describes its saved configuration, while the AI's usable context range estimates what might fit the proposed GPU setup. Neither is a measured performance guarantee.
 
 See the [local validation record](docs/local-validation.md) for completed checks and remaining live acceptance gates.
+
+Runpod is currently the only selectable provider. The [GPUtw assessment and provider integration guide](docs/provider-integration.md) records its API fit, dated price observations and unresolved ownership/startup contracts. The provider boundary and read-only recovery probe are prepared. The wrapper image has been built for `linux/amd64` and passed a local supervisor/authentication check without network or GPU access. GHCR login is complete; the owner paused the remaining 5.15 GB layer upload until returning from mobile data to fast home Wi-Fi. A manual GitHub-hosted publishing bundle is also prepared as an optional alternative. [Publication evidence and next step](docs/provider-integration.md#publication-attempts-and-prepared-github-workflow--11-october-2026). GPUtw provisioning remains disabled; local checks do not establish GPU or model compatibility.
+
+## Why this design
+
+The goal is to use temporary cloud inference from local coding projects without replacing the owner's normal CLI setup. Projects and CLI tools run on the Mac; the GPU Pod serves model requests. Model import and subscription analysis help prepare a deployment before any paid compute is created.
+
+| Choice | Reason |
+| --- | --- |
+| Rust owns credentials, validation and paid operations | Every native command enforces the same rules, including when a UI control is bypassed |
+| Separate Provision, Enable and Open CLI actions | Creating billable compute, verifying a usable endpoint and starting a local process have different failure and recovery paths |
+| Isolated CLI state and explicit deployment bindings | Normal subscription configuration stays intact; changing the enabled model affects new sessions while saved conversations keep their original route |
+| Immutable model revisions, pinned runtime and deployment snapshots | A catalog edit cannot silently change an existing deployment; compatibility evidence identifies the configuration actually tested |
+| One atomic local state store and macOS Keychain | The personal desktop app can preserve durable ownership records without another database or plaintext credential files |
+| Provider absence checked after Finish | A stopped container or successful deletion response alone does not establish that the billable Pod is gone |
+
+These choices make local behavior testable with disposable fixtures. They do not establish real GPU compatibility, provider billing behavior or cleanup while the Mac is offline.
 
 ## High-level architecture
 
@@ -82,7 +99,8 @@ The installed-app identifier and Keychain service stay `com.runpoddeck.desktop` 
 | `src-tauri/examples/export_contracts.rs` | Generates shared contracts, defaults and catalog schema |
 | `src-tauri/tests/` | Native lifecycle, persistence, isolation, HTTP and terminal regressions |
 | `model-catalog/` | Bundled model/runtime definitions and generated schema |
-| `containers/vllm-runtime/` | Python startup supervisor embedded by the provisioner |
+| `containers/vllm-runtime/` | Python startup supervisor and optional wrapper-image recipe |
+| `scripts/` | Opt-in recovery diagnostic and local image-plan preparation |
 | `tests/runtime/` | Offline Python runtime tests |
 | `tests/ui/` | Vue component and event-handler tests using existing compiler packages |
 | `docs/` | Operating guidance, design decisions, compatibility limits and validation evidence |
@@ -130,7 +148,7 @@ make dev     # Open the desktop app with development reload
 | `make build` | Build the macOS `.app` for the host architecture |
 | `make clean` | Remove only `dist/`, `src-tauri/target/` and `src-tauri/gen/` |
 
-The app bundle is written to `src-tauri/target/release/bundle/macos/AI Deck.app`. Open it from Finder. The configured minimum system version is macOS 13. The personal build has been verified on Apple Silicon; an Intel build is not yet verified, and a default host build is not a universal binary. Distribution signing/notarization is not configured. Follow the [operating guide](docs/operating-guide.md) for account, CLI and project setup.
+The app bundle is written to `src-tauri/target/release/bundle/macos/AI Deck.app`. Open it from Finder. The configured minimum system version is macOS 13. The personal build has been verified on Apple Silicon; an Intel build is not yet verified, and a default host build is not a universal binary. Builds use a local ad-hoc signature to seal the bundle; Developer ID signing/notarization is not configured. macOS may require approval in Privacy & Security when the app is transferred to another Mac. [Tauri signing guidance](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing). Follow the [operating guide](docs/operating-guide.md) for account, CLI and project setup.
 
 If the checkout is moved and Tauri reports generated files under its previous absolute path, run `make clean`, then rebuild. Cleaning removes built app bundles but preserves `node_modules`, project sources, lockfiles, app data and Keychain credentials.
 
@@ -148,6 +166,14 @@ cargo test --manifest-path src-tauri/Cargo.toml --test installed_cli_smoke -- --
 
 A rejection probe validates routing and arguments, not successful model compatibility. Other opt-in probes and their results are described in [model import](docs/model-import.md) and [local validation](docs/local-validation.md).
 
+## First owner-led live test
+
+After the local checks, add the Runpod key through **Setup** and fund the account through Runpod. Adding a key or credits does not create a Pod. Set your own total experiment budget and maximum lifetime, review the hourly rate and offline cleanup limitation, then enable paid provisioning. Keep credentials out of repository files and diagnostics.
+
+Use a disposable project and temporary storage for the first experiment. Follow **Provision → Enable → Open CLI**, then ask Codex to read a small failing test, edit its function, run the test with approval and use the result in a follow-up. Check the actual local diff, interrupt/resume behavior and normal subscription isolation. Ready only proves the app's endpoint checks; it does not prove this coding loop works.
+
+Record the exact profile fingerprint, CLI version, GPU, observed startup behavior and results using the [compatibility checklist](docs/model-compatibility.md). Test two concurrent sessions only when the profile permits them; imported suggestions currently permit one. Finish the deployment and confirm Pod deletion in the Runpod console. Any retained volume needs separate cost tracking and cleanup.
+
 Read [AGENTS.md](AGENTS.md) before changing the code. Reuse existing sources of truth, keep generated files generated, preserve saved state and credentials, and validate changes with relevant local checks. Git commits, pushes and merges are managed by the owner. Paid experiments require separate explicit authorization.
 
 ## Further reading
@@ -156,5 +182,6 @@ Read [AGENTS.md](AGENTS.md) before changing the code. Reuse existing sources of 
 - [Hugging Face model library](docs/model-import.md): analysis, model details, persistence and reuse.
 - [Model compatibility](docs/model-compatibility.md): evidence requirements and unsupported assumptions.
 - [Design decisions](docs/decisions.md): approved scope and provider constraints.
+- [Provider integration](docs/provider-integration.md): GPUtw assessment and adapter requirements.
 - [Implementation re-audit](docs/implementation-re-audit.md): historical findings and their fixes.
 - [Original project plan](runpod-coding-desktop-project-plan.md): intended scope and acceptance gates.

@@ -36,10 +36,8 @@ impl StateStore {
         let mut state: LocalState = if path.exists() {
             serde_json::from_slice(&fs::read(&path).map_err(|_| AppError::storage())?).map_err(
                 |_| {
-                    AppError::new(
-                        "state_corrupt",
+                    corrupt_state_error(
                         "Saved state could not be decoded. It has not been overwritten.",
-                        "Restore a verified backup or inspect the app-data file before retrying.",
                     )
                 },
             )?
@@ -51,6 +49,14 @@ impl StateStore {
                 "state_version",
                 "This app cannot open the saved state version.",
                 "Use the app version that created it. No data has been changed.",
+            ));
+        }
+        // Preserve the generated hyphenated identity exactly: existing Pods use it for ownership.
+        if state.installation_id.len() != 36
+            || uuid::Uuid::parse_str(&state.installation_id).is_err()
+        {
+            return Err(corrupt_state_error(
+                "Saved state has an invalid installation identity. It has not been overwritten.",
             ));
         }
         for deployment in &mut state.deployments {
@@ -107,6 +113,14 @@ impl StateStore {
         *locked = candidate;
         Ok(result)
     }
+}
+
+fn corrupt_state_error(message: &str) -> AppError {
+    AppError::new(
+        "state_corrupt",
+        message,
+        "Restore a verified backup or inspect the app-data file before retrying.",
+    )
 }
 
 pub fn private_directory(path: &Path) -> Result<()> {

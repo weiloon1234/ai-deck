@@ -1,6 +1,4 @@
-use crate::{
-    app_core::AppCore, deployment_service::owns, error::Result, runpod_client::Pod, types::*,
-};
+use crate::{app_core::AppCore, cloud_provider::CloudResource, error::Result, types::*};
 
 impl AppCore {
     pub async fn reconcile_all(&self) -> Result<()> {
@@ -48,9 +46,12 @@ impl AppCore {
         self.changed();
         first_error.map_or(Ok(()), Err)
     }
-    async fn reconcile_one(&self, id: &str, owner: &str, pods: &[Pod]) -> Result<()> {
+    async fn reconcile_one(&self, id: &str, owner: &str, pods: &[CloudResource]) -> Result<()> {
         let mut d = self.deployment(id)?;
-        let matches: Vec<_> = pods.iter().filter(|p| owns(&d, owner, p)).collect();
+        let matches: Vec<_> = pods
+            .iter()
+            .filter(|p| self.provider.owns(&d, owner, p))
+            .collect();
         // Also detect late creations after an explicitly resolved ambiguous request.
         if d.stage.is_terminal() {
             if matches.is_empty() {
@@ -107,7 +108,7 @@ impl AppCore {
                 return Err(error);
             }
         };
-        if !owns(&d, owner, &pod) {
+        if !self.provider.owns(&d, owner, &pod) {
             self.disconnect(id)?;
             return self.stage(
                 id,

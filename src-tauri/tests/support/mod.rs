@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 use ai_deck::{
     app_core::AppCore,
+    cloud_provider::*,
     credential_store::CredentialStore,
     error::{AppError, Result},
     model_catalog::builtin_catalog,
-    runpod_client::*,
     runtime_client::{RuntimeApi, RuntimeStatus},
     state_store::StateStore,
     terminal_process::TerminalManager,
@@ -24,6 +24,11 @@ use std::{
 pub struct MemoryCredentials {
     values: Mutex<HashMap<String, String>>,
     pub unavailable: AtomicBool,
+}
+impl MemoryCredentials {
+    pub fn is_empty(&self) -> bool {
+        self.values.lock().unwrap().is_empty()
+    }
 }
 impl CredentialStore for MemoryCredentials {
     fn get(&self, key: &str) -> Result<Option<String>> {
@@ -46,11 +51,13 @@ impl CredentialStore for MemoryCredentials {
     }
 }
 pub struct Provider {
-    pub pods: Mutex<Vec<Pod>>,
+    pub pods: Mutex<Vec<CloudResource>>,
     pub calls: AtomicUsize,
     pub creates: AtomicUsize,
     pub deletes: AtomicUsize,
     pub lose_create: AtomicBool,
+    pub reject_prepare: AtomicBool,
+    pub deny_ownership: AtomicBool,
     pub keep_after_delete: AtomicBool,
     pub lose_delete: AtomicBool,
     pub offline: AtomicBool,
@@ -70,8 +77,24 @@ impl Provider {
     }
 }
 #[async_trait]
-impl RunpodApi for Provider {
-    async fn create(&self, payload: Value) -> Result<Pod> {
+impl CloudProvider for Provider {
+    fn prepare_create(
+        &self,
+        deployment: &Deployment,
+        owner: &str,
+        token: &str,
+        hf_secret: Option<&str>,
+    ) -> Result<Value> {
+        if self.reject_prepare.load(Ordering::SeqCst) {
+            return Err(AppError::invalid("Fixture cannot prepare this runtime."));
+        }
+        ai_deck::runpod_client::create_payload(deployment, owner, token, hf_secret)
+    }
+    fn owns(&self, deployment: &Deployment, owner: &str, resource: &CloudResource) -> bool {
+        !self.deny_ownership.load(Ordering::SeqCst)
+            && ai_deck::runpod_client::owns(deployment, owner, resource)
+    }
+    async fn create(&self, payload: Value) -> Result<CloudResource> {
         self.touch()?;
         self.creates.fetch_add(1, Ordering::SeqCst);
         let state = self.store.read()?;
@@ -85,7 +108,7 @@ impl RunpodApi for Provider {
         assert_eq!(d.stage, DeploymentStage::Provisioning);
         assert_eq!(payload["env"]["RUNPOD_DECK_DEPLOYMENT"], d.id);
         assert_eq!(payload["env"]["RUNPOD_DECK_OWNER"], state.installation_id);
-        let pod = Pod {
+        let pod = CloudResource {
             id: format!("pod{}", self.creates.load(Ordering::SeqCst)),
             name: d.pod_name.clone(),
             image_name: d.profile.runtime.image.clone(),
@@ -102,11 +125,11 @@ impl RunpodApi for Provider {
             Ok(pod)
         }
     }
-    async fn list(&self) -> Result<Vec<Pod>> {
+    async fn list(&self) -> Result<Vec<CloudResource>> {
         self.touch()?;
         Ok(self.pods.lock().unwrap().clone())
     }
-    async fn get(&self, id: &str) -> Result<Option<Pod>> {
+    async fn get(&self, id: &str) -> Result<Option<CloudResource>> {
         self.touch()?;
         Ok(self
             .pods
@@ -213,6 +236,8 @@ impl Fixture {
             creates: AtomicUsize::new(0),
             deletes: AtomicUsize::new(0),
             lose_create: AtomicBool::new(false),
+            reject_prepare: AtomicBool::new(false),
+            deny_ownership: AtomicBool::new(false),
             keep_after_delete: AtomicBool::new(false),
             lose_delete: AtomicBool::new(false),
             offline: AtomicBool::new(false),

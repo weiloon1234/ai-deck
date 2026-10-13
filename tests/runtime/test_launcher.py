@@ -105,5 +105,50 @@ class RuntimeTests(unittest.TestCase):
             self.assertNotIn(b"fixture-endpoint-token", handler.wfile.getvalue())
             if expected != 200: self.assertEqual(handler.wfile.getvalue(), b"")
 
+    def test_non_ready_success_response_times_out_and_cleans_up_runtime_process_group(self):
+        for refuses_termination in [False, True]:
+            with self.subTest(refuses_termination=refuses_termination):
+                context = Mock()
+                context.Process.return_value.is_alive.return_value = False
+                context.Queue.return_value.get.return_value = "downloaded"
+                process = Mock(pid=1234, stdout=io.StringIO())
+                process.poll.return_value = None
+                if refuses_termination:
+                    process.wait.side_effect = [launcher.subprocess.TimeoutExpired("fixture-runtime", 15), None]
+                response = Mock(status=204)
+                response.__enter__ = Mock(return_value=response)
+                response.__exit__ = Mock(return_value=False)
+                stop = Mock()
+                stop.wait.side_effect = [False, True, True]
+                stop.is_set.return_value = False
+                output = io.StringIO()
+                with contextlib.ExitStack() as stack:
+                    stack.enter_context(contextlib.redirect_stdout(output))
+                    stack.enter_context(patch.object(launcher, "STATE", {"stage": "containerStarting", "code": "starting"}))
+                    stack.enter_context(patch.object(launcher, "STOP", stop))
+                    server = stack.enter_context(patch.object(launcher.http.server, "ThreadingHTTPServer"))
+                    stack.enter_context(patch.object(launcher.threading, "Thread"))
+                    stack.enter_context(patch.object(launcher.signal, "signal"))
+                    stack.enter_context(patch.object(launcher.multiprocessing, "get_context", return_value=context))
+                    stack.enter_context(patch.object(launcher.subprocess, "Popen", return_value=process))
+                    stack.enter_context(patch.object(launcher.urllib.request, "urlopen", return_value=response))
+                    stack.enter_context(patch.object(launcher.time, "monotonic", side_effect=[0, 0, CONFIG["loadTimeoutSeconds"] + 1]))
+                    kill_group = stack.enter_context(patch.object(launcher.os, "killpg"))
+                    launcher.main()
+                    self.assertEqual(launcher.STATE, {"stage": "failed", "code": "load_timeout"})
+                kill_group.assert_any_call(process.pid, launcher.signal.SIGTERM)
+                if refuses_termination:
+                    kill_group.assert_any_call(process.pid, launcher.signal.SIGKILL)
+                    self.assertEqual(kill_group.call_count, 2)
+                    self.assertEqual(process.wait.call_count, 2)
+                    process.wait.assert_called_with()
+                else:
+                    kill_group.assert_called_once_with(process.pid, launcher.signal.SIGTERM)
+                    process.wait.assert_called_once_with(timeout=15)
+                server.return_value.shutdown.assert_called_once_with()
+                statuses = [json.loads(line) for line in output.getvalue().splitlines()]
+                self.assertEqual(statuses[-1], {"stage": "failed", "code": "load_timeout"})
+                self.assertNotIn("fixture-endpoint-token", output.getvalue())
+
 if __name__ == "__main__":
     unittest.main()

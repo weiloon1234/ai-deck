@@ -1,76 +1,15 @@
 use crate::{
+    cloud_provider::{CloudProvider, CloudResource, Hardware},
     credential_store::{CredentialStore, RUNPOD_KEY},
     error::{AppError, Result},
+    http_client::{decode, http_client, protocol_error, resource_id, status_error},
+    model_catalog::{identifier, ModelAccess},
+    types::Deployment,
 };
 use async_trait::async_trait;
 use reqwest::{Client, Method, Response, StatusCode};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::Value;
-use std::{collections::HashMap, sync::Arc, time::Duration};
-use ts_rs::TS;
-
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Pod {
-    pub id: String,
-    pub name: String,
-    pub image_name: String,
-    pub desired_status: String,
-    #[serde(default)]
-    pub cost_per_hr: f64,
-    #[serde(default)]
-    pub env: HashMap<String, String>,
-    pub network_volume_id: Option<String>,
-}
-
-#[derive(Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct GpuType {
-    pub id: String,
-    pub display_name: String,
-    pub memory_in_gb: u32,
-    pub secure_cloud: bool,
-    pub secure_price: Option<f64>,
-}
-#[derive(Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct GpuAvailability {
-    pub gpu_type_id: String,
-    pub stock_status: Option<String>,
-}
-#[derive(Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct DataCenter {
-    pub id: String,
-    pub name: String,
-    pub location: String,
-    #[serde(default)]
-    pub gpu_availability: Vec<GpuAvailability>,
-}
-#[derive(Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkVolume {
-    pub id: String,
-    pub name: String,
-    pub size: u32,
-    pub data_center_id: String,
-}
-#[derive(Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct Hardware {
-    pub gpus: Vec<GpuType>,
-    pub data_centers: Vec<DataCenter>,
-    pub network_volumes: Vec<NetworkVolume>,
-}
-
-#[async_trait]
-pub trait RunpodApi: Send + Sync {
-    async fn create(&self, payload: Value) -> Result<Pod>;
-    async fn list(&self) -> Result<Vec<Pod>>;
-    async fn get(&self, id: &str) -> Result<Option<Pod>>;
-    async fn delete(&self, id: &str) -> Result<()>;
-    async fn hardware(&self) -> Result<Hardware>;
-}
+use serde_json::{json, Value};
+use std::sync::Arc;
 
 pub struct RunpodClient {
     http: Client,
@@ -110,15 +49,27 @@ impl RunpodClient {
 }
 
 #[async_trait]
-impl RunpodApi for RunpodClient {
-    async fn create(&self, payload: Value) -> Result<Pod> {
+impl CloudProvider for RunpodClient {
+    fn prepare_create(
+        &self,
+        deployment: &Deployment,
+        owner: &str,
+        token: &str,
+        hf_secret: Option<&str>,
+    ) -> Result<Value> {
+        create_payload(deployment, owner, token, hf_secret)
+    }
+    fn owns(&self, deployment: &Deployment, owner: &str, resource: &CloudResource) -> bool {
+        owns(deployment, owner, resource)
+    }
+    async fn create(&self, payload: Value) -> Result<CloudResource> {
         // Deliberately no POST retry: an error may follow a successful creation.
         decode(self.request(Method::POST, "/pods", Some(payload)).await?).await
     }
-    async fn list(&self) -> Result<Vec<Pod>> {
+    async fn list(&self) -> Result<Vec<CloudResource>> {
         decode(self.request(Method::GET, "/pods", None).await?).await
     }
-    async fn get(&self, id: &str) -> Result<Option<Pod>> {
+    async fn get(&self, id: &str) -> Result<Option<CloudResource>> {
         resource_id(id)?;
         let response = self
             .request(Method::GET, &format!("/pods/{id}"), None)
@@ -176,54 +127,43 @@ impl RunpodApi for RunpodClient {
     }
 }
 
-pub fn resource_id(id: &str) -> Result<()> {
-    if id.is_empty()
-        || id.len() > 128
-        || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
-    {
-        return Err(AppError::invalid("Invalid cloud resource identity."));
+// Ownership keys are a persistent protocol shared with already-running Pods.
+pub fn owns(d: &Deployment, owner: &str, pod: &CloudResource) -> bool {
+    pod.name == d.pod_name
+        && pod.image_name == d.profile.runtime.image
+        && pod.env.get("RUNPOD_DECK_OWNER").map(String::as_str) == Some(owner)
+        && pod.env.get("RUNPOD_DECK_DEPLOYMENT").map(String::as_str) == Some(d.id.as_str())
+        && pod.network_volume_id.as_deref().filter(|s| !s.is_empty())
+            == d.network_volume_id.as_deref()
+}
+pub fn create_payload(
+    d: &Deployment,
+    owner: &str,
+    token: &str,
+    hf_secret: Option<&str>,
+) -> Result<Value> {
+    let p = &d.profile.model;
+    let r = &d.profile.runtime;
+    let config = json!({"repository":p.repository,"revision":p.revision,"inferencePort":r.inference_port,"statusPort":r.status_port,
+        "downloadTimeoutSeconds":r.download_timeout_seconds,"loadTimeoutSeconds":r.load_timeout_seconds,"minCacheGb":p.min_cache_gb,"arguments":d.profile.arguments()});
+    let mut env = json!({"VLLM_API_KEY":token,"RUNPOD_DECK_OWNER":owner,"RUNPOD_DECK_DEPLOYMENT":d.id,
+        "RUNPOD_DECK_RUNTIME":config.to_string(),"HF_HOME":"/tmp/ai-deck-hf","HF_HUB_CACHE":p.model_cache_path,
+        "HF_HUB_DISABLE_PROGRESS_BARS":"1","HF_HUB_DISABLE_TELEMETRY":"1","VLLM_NO_USAGE_STATS":"1",
+        "VLLM_CACHE_ROOT":format!("{}/{}",p.compile_cache_path,d.profile.fingerprint),"PYTHONUNBUFFERED":"1"});
+    if p.access != ModelAccess::Public {
+        let name = hf_secret
+            .filter(|s| identifier(s))
+            .ok_or_else(|| AppError::invalid("Set a valid Hugging Face Runpod secret name."))?;
+        env["HF_TOKEN"] = json!(format!("{{{{ RUNPOD_SECRET_{name} }}}}"));
     }
-    Ok(())
-}
-pub fn http_client(timeout_seconds: u64) -> Result<Client> {
-    Client::builder()
-        .timeout(Duration::from_secs(timeout_seconds))
-        .connect_timeout(Duration::from_secs(10))
-        .redirect(reqwest::redirect::Policy::none())
-        .no_proxy()
-        .build()
-        .map_err(|_| AppError::network())
-}
-pub async fn decode<T: DeserializeOwned>(response: Response) -> Result<T> {
-    if !response.status().is_success() {
-        return Err(status_error(response.status()));
+    let mut payload = json!({"name":d.pod_name,"imageName":r.image,"cloudType":"SECURE","computeType":"GPU",
+        "gpuTypeIds":[d.gpu_type],"gpuCount":d.gpu_count,"dataCenterIds":[d.data_center_id],"interruptible":false,
+        "containerDiskInGb":p.disk_gb,"volumeInGb":0,"volumeMountPath":"/workspace",
+        "minRAMPerGPU":p.min_cpu_ram_gb.div_ceil(d.gpu_count),"minVCPUPerGPU":4,
+        "ports":[format!("{}/http",r.inference_port),format!("{}/http",r.status_port)],
+        "dockerEntrypoint":["python3","-u","-c"],"dockerStartCmd":[include_str!("../../containers/vllm-runtime/launcher.py")],"env":env});
+    if let Some(id) = &d.network_volume_id {
+        payload["networkVolumeId"] = json!(id);
     }
-    let bytes = bounded_body(response, 2 * 1024 * 1024).await?;
-    serde_json::from_slice(&bytes).map_err(|_| protocol_error())
-}
-pub async fn bounded_body(mut response: Response, limit: usize) -> Result<Vec<u8>> {
-    let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|_| AppError::network())? {
-        if body.len() + chunk.len() > limit {
-            return Err(protocol_error());
-        }
-        body.extend_from_slice(&chunk);
-    }
-    Ok(body)
-}
-fn protocol_error() -> AppError {
-    AppError::new(
-        "provider_protocol",
-        "The provider returned an unexpected response.",
-        "Reconcile existing resources before trying another deployment.",
-    )
-}
-pub fn status_error(status: StatusCode) -> AppError {
-    let (code, message, recovery) = match status.as_u16() {
-        401 | 403 => ("authentication", "The service rejected the credential or account permissions.", "Check the correct credential and its permissions. Subscription fallback is disabled."),
-        429 => ("rate_limit", "The service is rate limiting requests.", "Wait briefly, then reconcile before retrying."),
-        400 | 422 => ("provider_configuration", "The provider rejected the deployment configuration.", "Check image, GPU availability, storage location, and account balance in the Runpod console."),
-        _ => ("provider_unavailable", "The provider could not complete the request.", "Reconcile resources before retrying. Check the Runpod console for ongoing charges."),
-    };
-    AppError::new(code, message, recovery)
+    Ok(payload)
 }

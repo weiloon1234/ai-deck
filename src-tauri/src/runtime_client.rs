@@ -1,7 +1,7 @@
 use crate::{
     credential_store::CredentialStore,
     error::{AppError, Result},
-    runpod_client::{decode, http_client, resource_id, status_error},
+    http_client::{decode, http_client, resource_id, status_error},
     types::Deployment,
 };
 use async_trait::async_trait;

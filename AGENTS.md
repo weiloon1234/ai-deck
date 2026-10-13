@@ -15,7 +15,7 @@
 
 AI Deck manages temporary cloud inference for local coding projects. Read [README.md](README.md) for architecture and [docs/decisions.md](docs/decisions.md) for approved scope.
 
-- No paid Runpod tests, resource creation, model downloads or paid inference are authorized by default. The owner will perform live acceptance. Do not turn on paid provisioning or invent total-budget/lifetime settings for testing.
+- No paid cloud tests, resource creation, model downloads or paid inference are authorized by default. The owner will perform live acceptance. Do not turn on paid provisioning or invent total-budget/lifetime settings for testing.
 - Preserve the configured hourly ceiling and explicit creation confirmation. Local timers are not independent offline cost protection. Retained storage remains billable after Pod deletion.
 - Keep Provision, Enable and Open CLI separate. Closing a session/window must not silently terminate compute. Finish must preserve ownership checks, verify cloud deletion and wait for affected local process cleanup.
 - Preserve saved deployment/session bindings. Catalog edits and new selections must not silently retarget existing sessions.
@@ -31,6 +31,7 @@ The project/package name is `ai-deck`, Rust library `ai_deck`, and displayed pro
 | Concern | Edit here |
 | --- | --- |
 | Native state, IPC types, policy defaults | Rust types and services under `src-tauri/src/` |
+| Provider boundary and Runpod protocol | `src-tauri/src/cloud_provider.rs` and `src-tauri/src/runpod_client.rs` |
 | Bundled model/runtime settings | `model-catalog/catalog.json`; validate in `model_catalog.rs` |
 | Imported metadata, analysis and quotes | Existing `StateStore` through `model_import_service.rs` |
 | Generated frontend types/defaults/catalog schema | Rust sources and `src-tauri/examples/export_contracts.rs`; run `npm run contracts` |
@@ -41,6 +42,22 @@ The project/package name is `ai-deck`, Rust library `ai_deck`, and displayed pro
 
 Do not hand-edit `src/shared/contracts.ts`, `src/shared/defaults.json` or `model-catalog/schema.json`. Do not edit build artifacts, dependency directories or generated Tauri schema files as implementation sources. Avoid introducing another store or a database dependency for the model library.
 
+## Scoped guidance
+
+Read the closest guide before editing its area; each inherits this file.
+
+| Area | Guidance |
+| --- | --- |
+| Vue screens and shared bridge | [src/AGENTS.md](src/AGENTS.md) |
+| Native services and IPC | [src-tauri/AGENTS.md](src-tauri/AGENTS.md) |
+| Coding CLI launchers | [CLI adapter guidance](src-tauri/src/cli_adapters/AGENTS.md) |
+| Native fixtures and process tests | [native test guidance](src-tauri/tests/AGENTS.md) |
+| UI and runtime fixtures | [tests/AGENTS.md](tests/AGENTS.md) |
+| Bundled profiles and generated schema | [model-catalog/AGENTS.md](model-catalog/AGENTS.md) |
+| GPU supervisor | [runtime guidance](containers/vllm-runtime/AGENTS.md) |
+| User guidance and validation evidence | [docs/AGENTS.md](docs/AGENTS.md) |
+| Opt-in diagnostics and local image preparation | [scripts/AGENTS.md](scripts/AGENTS.md) |
+
 ## Verification and documentation
 
 - Keep Make targets thin: reuse existing npm scripts for shared command chains. `make doctor` is read-only; do not add implicit npm installation or automatic system-tool/CLI installation to other targets. Keep regular checks/tests free of cloud credentials and paid work.
@@ -49,5 +66,7 @@ Do not hand-edit `src/shared/contracts.ts`, `src/shared/defaults.json` or `model
 - Run relevant tests, then `npm run check` and `npm test` for cross-layer changes. These cover generated drift, Vue/TypeScript build, Rust format/lints, native tests, Python runtime tests and Vue tests.
 - Local listener/PTY failures may be environment permission problems. Report them accurately; never substitute real accounts or paid cloud resources to get a test passing.
 - Optional ignored probes require deliberate selection. Inspect what a probe does before running it; preserve its fake credentials and disposable directories. A read-only public metadata fetch is not a successful model inference test.
+- Match compatibility checks to the profile's declared capacity. Single-session profiles still require the full coding/isolation checks; profiles allowing multiple sessions also require the concurrent-session check. Never add passing evidence to bundled/imported profiles from fixture results.
+- Review `.gitignore` and `.gitattributes` when introducing outputs or file types. Keep lockfiles, generated contracts/defaults/schema and source icons tracked. Ignore local secrets and diagnostics; preserve LF text and binary asset handling. Do not renormalize unrelated files.
 - Rebuild the `.app` when delivering desktop changes. Do not open an app against the owner's saved cloud state merely to inspect layout; use an isolated fixture or browser preview.
 - Keep README and feature docs aligned with actual behavior. Record verification limits in `docs/local-validation.md`; preserve historical audit evidence and distinguish it from current results.

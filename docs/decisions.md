@@ -86,4 +86,8 @@ Both candidates now have immutable revisions and a pinned shared runtime in the 
 
 ## Next gate
 
+The owner requested a GPUtw feasibility assessment and a small provider refactor on 10 October 2026. The existing cloud interface is now `CloudProvider`, with creation payloads and ownership checks delegated to the adapter. Runpod remains the only active provider while GPUtw creation correlation and supervisor-image startup requirements are unresolved. See [provider integration](provider-integration.md) for the dated API evidence and [local validation](local-validation.md) for current checks. This request does not authorize paid GPUtw operations.
+
+Later on 10 October, the owner explicitly approved restoring missing locked Rust dependencies, final local checks, app rebuilding and remaining GPUtw work without paid cloud tests. Locked restoration and the full local checks passed. The supervisor wrapper recipe and catalog-bound build-plan generator are prepared; no Docker image was pulled, built or published, and no provider was enabled from fixture evidence.
+
 Deliver the locally built application under the owner's no-paid-tests instruction. Record local checks separately from live acceptance. The owner will perform the disposable Phase 1 coding experiment and subsequent cloud acceptance checks later. No phase with a live exit gate may be marked complete solely from code or mocked tests.

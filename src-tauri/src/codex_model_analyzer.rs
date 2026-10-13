@@ -1,10 +1,10 @@
 use crate::{
     cli_adapters::{assert_known_launcher, controlled_environment, discover},
+    cloud_provider::Hardware,
     error::{AppError, Result},
     hugging_face_client::HubModel,
     model_analysis::{invalid_analysis, ModelAnalysis},
     model_catalog::RuntimeProfile,
-    runpod_client::Hardware,
     state_store::{atomic_write, private_directory},
     types::CliKind,
 };
@@ -322,9 +322,9 @@ fn analysis_error() -> AppError {
 mod tests {
     use super::*;
     use crate::{
+        cloud_provider::GpuType,
         hugging_face_client::ModelSource,
         model_catalog::{builtin_catalog, ModelAccess},
-        runpod_client::GpuType,
     };
     use std::os::unix::fs::PermissionsExt;
 

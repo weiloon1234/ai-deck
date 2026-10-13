@@ -11,7 +11,7 @@ const tokens = (value: number) => value.toLocaleString();
 </script>
 <template>
   <section class="model-hardware">
-    <div class="eyebrow">CODEX · UNTESTED ESTIMATE</div><h3>Suggested Runpod setup</h3>
+    <h3>Suggested Runpod setup</h3><p class="source-note">CODEX · UNTESTED ESTIMATE</p>
     <p>{{ model.analysis.summary }}</p>
     <div class="model-metrics"><div><strong>{{ model.analysis.minimumTotalVramGb }} GB</strong><span>Suggested total GPU memory</span></div><div><strong>{{ model.analysis.gpuCount }}</strong><span>GPU(s) · one coding session</span></div></div>
     <div class="context-range"><strong>{{ tokens(model.analysis.contextMinTokens) }}–{{ tokens(model.analysis.contextMaxTokens) }} tokens</strong><span>Suggested usable context · default {{ tokens(model.analysis.recommendedContextTokens) }}</span></div>
