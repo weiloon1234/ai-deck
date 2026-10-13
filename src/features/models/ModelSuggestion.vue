@@ -27,7 +27,7 @@ async function reanalyze() {
 </script>
 <template>
   <article class="model-card imported-model">
-    <div class="card-top"><span class="model-symbol"><UiIcon name="models" /></span><span class="tag amber">{{ model.experimentalConfiguration ? 'EXPERIMENTAL · UNTESTED' : model.profile ? 'AI SUGGESTION · UNTESTED' : 'SAVED · NOT CONFIGURED' }}</span></div>
+    <div class="card-top"><span class="model-symbol"><UiIcon name="models" /></span><span class="tag">{{ model.experimentalConfiguration ? 'MANUAL CONFIGURATION' : model.profile ? 'AI SUGGESTION' : 'SAVED · NOT CONFIGURED' }}</span></div>
     <h2>{{ model.metadata.repository.split('/').pop() }}</h2>
     <p><a :href="`https://huggingface.co/${model.metadata.repository}`" target="_blank" rel="noreferrer" @click="deck.openExternal">{{ model.metadata.repository }} ↗</a></p>
     <p class="model-summary">{{ model.analysis.summary }}</p>

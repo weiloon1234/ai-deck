@@ -249,6 +249,10 @@ async fn legacy_snapshots_load_without_rewriting_their_profile_and_preserve_know
     let path = f.core.store.directory().to_path_buf();
     let mut old = serde_json::to_value(f.core.store.read().unwrap()).unwrap();
     old["settings"].as_object_mut().unwrap().remove("provider");
+    old["settings"]["policy"]
+        .as_object_mut()
+        .unwrap()
+        .remove("maxLifetimeMinutes");
     let d = old["deployments"][0].as_object_mut().unwrap();
     d.remove("provider");
     d.remove("startupCompleted");
@@ -257,6 +261,7 @@ async fn legacy_snapshots_load_without_rewriting_their_profile_and_preserve_know
         .unwrap()
         .remove("minCacheGb");
     let fingerprint = d["profile"]["fingerprint"].clone();
+    let deadline = d["deadlineAt"].clone();
     drop(f.core);
     drop(f.provider);
     std::fs::write(path.join("state.json"), serde_json::to_vec(&old).unwrap()).unwrap();
@@ -270,6 +275,11 @@ async fn legacy_snapshots_load_without_rewriting_their_profile_and_preserve_know
         ai_deck::cloud_provider::ProviderId::Runpod
     );
     assert_eq!(state.deployments[0].startup_completed, Some(true));
+    assert!(state.settings.policy.max_lifetime_minutes.is_none());
+    assert_eq!(
+        serde_json::json!(state.deployments[0].deadline_at),
+        deadline
+    );
     assert_eq!(
         serde_json::json!(state.deployments[0].profile.fingerprint),
         fingerprint

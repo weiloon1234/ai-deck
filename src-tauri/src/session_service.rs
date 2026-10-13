@@ -50,9 +50,6 @@ impl AppCore {
             deployment
                 .profile
                 .is_validated(&request.cli, &version, &deployment.gpu_type);
-        if !validated && !request.allow_unverified {
-            return Err(AppError::new("compatibility_unverified", "This exact CLI/model/runtime combination has no complete coding-test evidence.", "Use the explicit candidate-test option when you are ready to validate it. It will not be labeled supported."));
-        }
         let id = uuid::Uuid::new_v4().to_string();
         let directory = self.store.directory().join("sessions").join(&id);
         private_directory(&directory)?;
@@ -90,7 +87,7 @@ impl AppCore {
         )?;
         Ok(id)
     }
-    pub async fn resume(self: &Arc<Self>, id: &str, allow_unverified: bool) -> Result<()> {
+    pub async fn resume(self: &Arc<Self>, id: &str) -> Result<()> {
         let _guard = self.operations.lock().await;
         let state = self.store.read()?;
         let mut session = state
@@ -121,15 +118,6 @@ impl AppCore {
         let version = installation
             .version
             .ok_or_else(|| AppError::invalid(installation.message))?;
-        if !deployment
-            .profile
-            .is_validated(&session.cli, &version, &deployment.gpu_type)
-            && !allow_unverified
-        {
-            return Err(AppError::invalid(
-                "Acknowledge the unverified combination before resuming a candidate test.",
-            ));
-        }
         session.unverified_combination =
             !deployment
                 .profile
@@ -170,7 +158,11 @@ impl AppCore {
             })
             .count();
         if active >= deployment.profile.model.max_sessions as usize {
-            return Err(AppError::new("session_capacity", "This deployment has reached its configured session limit.", "Close a session before opening another. Candidate capacity still requires live validation."));
+            return Err(AppError::new(
+                "session_capacity",
+                "This deployment has reached its configured session limit.",
+                "Close a session before opening another.",
+            ));
         }
         Ok(())
     }

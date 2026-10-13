@@ -4,11 +4,11 @@ To add more models, open **Models**, paste a Hugging Face model URL, and choose 
 
 ## Before your first cloud test
 
-No cloud resources or paid inference were used to develop this build. You control the first paid experiment.
+Agent-run development checks use disposable fixtures and no paid cloud operations. You control live deployments and coding tests.
 
 1. Open **Setup → Cloud provider** and select **Runpod** for a cloud test. Add its management key; it is stored in a separate Mac Keychain entry from GPUtw. The frontend clears the input after submission. **Check read access** checks provider information without creating compute.
 2. Confirm the detected Codex / Claude paths. You can try any installed version; the app records the version without an exact-version allowlist. Isolation flags remain enabled, so an incompatible CLI may fail. The app does not install or update either CLI.
-3. Set a total experiment budget and a maximum Pod lifetime. Leave the hourly limit at or below USD 10. Saving smaller limits can shorten an active Pod's deadline; larger values never extend that deadline. The total is cumulative across the app's saved deployment history; increase it deliberately for additional experiments. Storage and provider billing differences are not included in a guaranteed cap.
+3. Set a total experiment budget. There is no fixed maximum-lifetime setting; new deployments derive their local cleanup deadline from remaining budget and GPU rate. Leave the hourly limit at or below USD 10. Saving smaller limits can shorten an active Pod's deadline; larger values never extend that deadline. The total is cumulative across the app's saved deployment history; increase it deliberately for additional experiments. Storage and provider billing differences are not included in a guaranteed cap.
 4. Read the offline cleanup limitation. When you are ready, acknowledge it and enable paid provisioning. This setting alone does not create compute.
 5. Add a **disposable local project** in Projects. Keep real databases and important working files out of initial coding tests.
 
@@ -23,7 +23,7 @@ These steps currently use Runpod. GPUtw has its own setup flow below.
 3. **Provision Runpod** opens a cost confirmation. Only **Create paid Pod** submits a creation request. Pricing is rechecked before creation and again after the provider reports the actual Pod rate. Over-limit or missing actual prices trigger cleanup, but short startup charges can still occur.
 4. Watch Downloading, Loading, and Verifying. The status service requires the deployment credential. Ready requires rejecting a bad credential, matching the served model name, and returning an inference result. Ready is not proof of reliable coding ability.
 5. Select **Enable endpoint**. This verifies it again and selects it for new local sessions. Enable does not create another Pod or start billing; billing already began during provisioning.
-6. **Open CLI**, choose a project and CLI, name the session, and acknowledge candidate testing until exact compatibility evidence exists. Normal CLI approvals remain active.
+6. **Open CLI**, choose a project and CLI, name the session, and open the session without an extra candidate-test acknowledgement. Normal CLI approvals remain active.
 7. Use the session sidebar to switch terminals. Multiple sessions can share a Pod, subject to its configured capacity. Sessions using the same local folder can edit the same files.
 
 Use the [cloud acceptance checklist](model-compatibility.md) to validate the first model. Do not mark support from a text response alone.
@@ -65,7 +65,7 @@ Terminal scrollback is bounded, kept in memory, and disappears when the app exit
 
 **Cleanup Pending is not terminated.** Use Reconcile and the Runpod console until the provider confirms deletion. Retained network volumes continue billing after successful Pod deletion and must be managed separately in Runpod.
 
-Maximum lifetime and budget controls are local best-effort timers. App sleep, loss of connectivity, API delays, or closing the app can exceed them. Provider-side scheduled termination was not reliable in the research recorded in [decisions](decisions.md). Do not leave an initial experiment unattended. A separate shutdown mechanism must be proven before claiming offline protection.
+Budget cleanup deadlines are local best-effort timers. Saved deployments retain any earlier deadline, including one set by an older maximum-lifetime policy; updates never extend it automatically. App sleep, loss of connectivity, API delays, or closing the app can exceed them. Provider-side scheduled termination was not reliable in the research recorded in [decisions](decisions.md). Do not leave an initial experiment unattended. A separate shutdown mechanism must be proven before claiming offline protection.
 
 ## Recovery
 
@@ -75,7 +75,7 @@ Maximum lifetime and budget controls are local best-effort timers. App sleep, lo
 - **Lost deletion response:** Reconcile. A successful DELETE response alone is insufficient; the app confirms that every tracked Pod is absent.
 - **Authentication or wrong model:** New connected launches are blocked. Fatal readiness failures trigger cleanup. Inspect the preserved failure reason and model profile before recreating compute.
 - **Download/access failure:** Check the model page and the token's read access. A 403 does not always distinguish pending approval from insufficient token permissions.
-- **Temporary endpoint outage:** rate limits and gateway errors block new launches and trigger rechecking. They are not treated as proof of missing authentication. Initial startup remains bounded; previously ready deployments keep their lifetime/budget deadline while reconnecting.
+- **Temporary endpoint outage:** rate limits and gateway errors block new launches and trigger rechecking. They are not treated as proof of missing authentication. Initial startup remains bounded; previously ready deployments keep their saved cleanup deadline while reconnecting.
 - **Keychain or catalog unavailable:** saved deployments and recovery controls remain visible. Retry after restoring Keychain access, or import a valid catalog from Models. Older imported catalogs need the `minCacheGb` field; saved deployment profiles remain intact.
 - **Cache too small:** choose a larger retained volume or temporary storage. Known-insufficient volume capacity is rejected before creation; actual free space is checked in the Pod, crediting complete files for the selected revision. An in-Pod failure still incurs startup charges until cleanup is confirmed.
 - **Local cleanup unconfirmed:** keep the app open and retry Close. Finish can confirm Pod deletion while still reporting a local cleanup error; session processes must also stop before Quit succeeds. Process supervision runs only while the app is running.

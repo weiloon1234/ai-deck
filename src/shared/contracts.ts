@@ -14,7 +14,11 @@ export type CliKind = "codex" | "claude";
 
 export type SessionStatus = "starting" | "running" | "disconnected" | "ended";
 
-export type Policy = { paidProvisioningEnabled: boolean, maxHourlyUsd: number, totalBudgetUsd: number | null, maxLifetimeMinutes: number | null, acknowledgeOfflineRisk: boolean, autoTerminateDelaySeconds: number | null, claudeEnabled: boolean, };
+export type Policy = { paidProvisioningEnabled: boolean, maxHourlyUsd: number, totalBudgetUsd: number | null,
+/**
+ * Legacy saved setting, retained for compatibility and no longer enforced.
+ */
+maxLifetimeMinutes: number | null, acknowledgeOfflineRisk: boolean, autoTerminateDelaySeconds: number | null, claudeEnabled: boolean, };
 
 export type AppSettings = { provider: ProviderId, policy: Policy, huggingFaceSecret: string | null, codexPath: string | null, claudePath: string | null, };
 
@@ -38,7 +42,7 @@ export type AppSnapshot = { providers: Array<ProviderStatus>, state: LocalState,
 
 export type ProvisionRequest = { provider: ProviderId, profileId: string, profileFingerprint: string, gpuType: string, dataCenterId: string, networkVolumeId: string | null, acknowledgePaidCreation: boolean, };
 
-export type LaunchRequest = { projectId: string, cli: CliKind, name: string, allowUnverified: boolean, };
+export type LaunchRequest = { projectId: string, cli: CliKind, name: string, };
 
 export type CliInstallation = { cli: CliKind, path: string | null, version: string | null, message: string, };
 

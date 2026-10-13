@@ -11,7 +11,7 @@ const tokens = (value: number) => value.toLocaleString();
 </script>
 <template>
   <section class="model-hardware">
-    <h3>Suggested Runpod setup</h3><p class="source-note">CODEX · UNTESTED ESTIMATE</p>
+    <h3>Suggested Runpod setup</h3><p class="source-note">CODEX · HARDWARE ESTIMATE</p>
     <p>{{ model.analysis.summary }}</p>
     <div class="model-metrics"><div><strong>{{ model.analysis.minimumTotalVramGb }} GB</strong><span>Suggested total GPU memory</span></div><div><strong>{{ model.analysis.gpuCount }}</strong><span>GPU(s) · one coding session</span></div></div>
     <div class="context-range"><strong>{{ tokens(model.analysis.contextMinTokens) }}–{{ tokens(model.analysis.contextMaxTokens) }} tokens</strong><span>Suggested usable context · default {{ tokens(model.analysis.recommendedContextTokens) }}</span></div>
@@ -25,8 +25,7 @@ const tokens = (value: number) => value.toLocaleString();
       </div>
       <p v-if="!model.quotes.length" class="small muted">No matching Secure Cloud GPU quote. Reanalyze to consider other hardware.</p>
     </div>
-    <p v-if="!model.analysis.runtimeCompatible" class="notice warning">Codex assessment: {{ model.analysis.compatibilityReason }}</p>
-    <p v-else-if="!model.profile" class="notice warning">{{ !withinBudget ? 'No priced configuration fits your GPU budget.' : 'This model needs supported full weights, enough cache space, a complete config and tool-calling setup before it can become a launch profile.' }} The analysis is saved for reference.</p>
+    <p v-if="!model.profile" class="notice warning">{{ !withinBudget ? 'No priced configuration fits your GPU budget.' : 'This model needs supported full weights, enough cache space, a complete config and tool-calling setup before it can become a launch profile.' }} The analysis is saved for reference.</p>
     <details class="advanced"><summary>Assumptions and runtime requirements</summary>
       <p class="small section-gap">{{ model.analysis.compatibilityReason }}</p>
       <dl><dt>CPU memory</dt><dd>{{ model.analysis.minCpuRamGb }} GB suggested</dd><dt>Disk / cache</dt><dd>{{ model.analysis.diskGb }} GB / {{ model.analysis.minCacheGb }} GB</dd><dt>Runtime</dt><dd>vLLM {{ model.runtime.version }}</dd><dt>Analysis</dt><dd>{{ date(model.analyzedAt) }} · {{ model.analyzerVersion }}</dd></dl>

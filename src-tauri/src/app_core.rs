@@ -136,3 +136,7 @@ pub fn estimated_cost(deployment: &Deployment, at: u32) -> f64 {
     ) / 3600.0
         * deployment.hourly_usd
 }
+
+pub fn budget_deadline(at: u32, remaining_usd: f64, hourly_usd: f64) -> u32 {
+    at.saturating_add((remaining_usd.max(0.0) / hourly_usd * 3600.0) as u32)
+}

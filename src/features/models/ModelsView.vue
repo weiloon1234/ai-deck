@@ -42,14 +42,14 @@ async function importModel() {
   <h3 v-if="imported.length && profiles.length" class="library-section-label">Catalog profiles</h3>
   <div class="model-grid">
     <article v-for="profile in profiles" :key="profile.model.id" class="model-card">
-      <div class="card-top"><span class="model-symbol"><UiIcon name="models" /></span><span class="tag amber">{{ profile.model.evidence.length ? 'EVIDENCE ATTACHED' : 'NOT YET TESTED' }}</span></div>
+      <div class="card-top"><span class="model-symbol"><UiIcon name="models" /></span><span v-if="profile.model.evidence.length" class="tag">EVIDENCE ATTACHED</span></div>
       <h2>{{ profile.model.displayName }}</h2><p>{{ profile.model.repository }}</p>
       <div class="model-metrics"><div><strong>{{ (profile.model.contextTokens / 1024).toFixed(0) }}k</strong><span>Configured context</span></div><div><strong>{{ profile.model.maxSessions }}</strong><span>Configured sessions</span></div><div><strong>{{ profile.model.minGpuMemoryGb }} GB</strong><span>GPU memory</span></div></div>
       <div class="protocols"><span>Codex · Responses</span><span v-if="profile.model.supportsMessages">Claude Code · Experimental</span></div>
-      <details class="advanced"><summary>Limitations, version and validation</summary><ul class="limitations"><li v-for="limit in profile.model.limitations" :key="limit">{{ limit }}</li></ul><dl><dt>Model revision</dt><dd>{{ profile.model.revision }}</dd><dt>Runtime</dt><dd>vLLM {{ profile.runtime.version }}</dd><dt>Image digest</dt><dd>{{ profile.runtime.image }}</dd><dt>Configuration fingerprint</dt><dd>{{ profile.fingerprint }}</dd><dt>Evidence</dt><dd>{{ profile.model.evidence.length }} reports. Each launch checks the exact CLI version and required capabilities.</dd></dl></details>
+      <details class="advanced"><summary>Limitations, version and validation</summary><ul class="limitations"><li v-for="limit in profile.model.limitations" :key="limit">{{ limit }}</li></ul><dl><dt>Model revision</dt><dd>{{ profile.model.revision }}</dd><dt>Runtime</dt><dd>vLLM {{ profile.runtime.version }}</dd><dt>Image digest</dt><dd>{{ profile.runtime.image }}</dd><dt>Configuration fingerprint</dt><dd>{{ profile.fingerprint }}</dd><dt>Evidence</dt><dd>{{ profile.model.evidence.length }} reports, matched to the exact CLI version and configured capacity.</dd></dl></details>
       <button class="button primary wide" @click="selectedProfileId = profile.model.id; view = 'deployments'">Use this profile <span>→</span></button>
     </article>
   </div>
   <div v-if="!imported.length && !profiles.length" class="notice search-empty" role="status"><span>No saved models match your search.</span><button v-if="search" class="button ghost compact" @click="search = ''">Clear search</button></div>
-  <p class="footnote">Hardware and context suggestions have not been measured on a paid GPU. Price snapshots exclude storage; launch checks current pricing and your budget again.</p>
+  <p class="footnote">GPU price snapshots exclude storage. Deployment checks current pricing and your budget again.</p>
 </template>

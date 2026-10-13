@@ -96,3 +96,24 @@ test('launch dialog closes when routing a disconnected user to Deployment', () =
   assert.equal(closed, true);
   assert.equal(deck.view.value, 'deployments');
 });
+
+test('launch and resume use their bindings without candidate acknowledgements', async () => {
+  const deck = fixture(); const calls = []; let selected;
+  deck.connected.value = true;
+  deck.perform = async (_label, action) => action();
+  deck.call = async (command, args) => { calls.push({ command, args }); return 'fixture-session'; };
+  deck.selectSession = id => { selected = id; };
+  const launch = component('src/features/sessions/LaunchSessionDialog.vue', deck, false).setup({ projectId: 'b' }, { expose() {}, emit() {} });
+  await launch.launch();
+  assert.equal(selected, 'fixture-session');
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), { command: 'launch_session', args: { request: { projectId: 'b', cli: 'codex', name: 'Coding session' } } });
+  const dialog = component('src/features/sessions/LaunchSessionDialog.vue', deck).setup({ projectId: 'b' }, { emit() {} })({}, []);
+  assert.equal(find({ children: dialog.children.default() }, n => n.type === 'input' && n.props?.type === 'checkbox'), undefined);
+  deck.activeSession = vue.ref({ id: 'original-session', status: 'ended', deploymentId: 'original-deployment', model: 'fixture', unverifiedCombination: true });
+  const session = component('src/features/sessions/SessionsView.vue', deck, false).setup({}, { expose() {}, emit() {} });
+  session.resumeOpen.value = true; await session.resume();
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[1])), { command: 'resume_session', args: { id: 'original-session' } });
+  assert.equal(session.resumeOpen.value, false);
+  const content = component('src/features/sessions/SessionsView.vue', deck).setup({}, { emit() {} })({}, []);
+  assert.match(text(content), /original-deployment/); assert.doesNotMatch(text(content), /Candidate test|Validated combination/);
+});

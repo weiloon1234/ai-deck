@@ -198,7 +198,7 @@ async fn paid_actions_default_to_disabled_and_never_reach_provider() {
     assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
 }
 #[test]
-fn spending_authorization_requires_all_limits() {
+fn spending_authorization_requires_budget_hourly_ceiling_and_offline_acknowledgement() {
     assert!(validate_policy(&Policy::default()).is_ok());
     let mut p = Policy {
         paid_provisioning_enabled: true,
@@ -206,13 +206,65 @@ fn spending_authorization_requires_all_limits() {
     };
     assert!(validate_policy(&p).is_err());
     p.total_budget_usd = Some(10.0);
-    p.max_lifetime_minutes = Some(20);
+    assert!(validate_policy(&p).is_err());
     p.acknowledge_offline_risk = true;
     assert!(validate_policy(&p).is_ok());
+    p.max_lifetime_minutes = Some(0); // A legacy field no longer restricts settings.
+    assert!(validate_policy(&p).is_ok());
+    p.total_budget_usd = Some(f64::INFINITY);
+    assert!(validate_policy(&p).is_err());
+    p.total_budget_usd = Some(10.0);
     p.max_hourly_usd = 10.01;
     assert!(validate_policy(&p).is_err());
     p.max_hourly_usd = f64::NAN;
     assert!(validate_policy(&p).is_err());
+}
+
+#[tokio::test]
+async fn budget_deadline_ignores_legacy_lifetime_and_deducts_prior_deployment_cost() {
+    for legacy_lifetime in [None, Some(1)] {
+        let f = Fixture::new();
+        f.authorize_mock();
+        *f.provider.actual_price.lock().unwrap() = 3.0;
+        f.core
+            .store
+            .update(|s| {
+                s.settings.policy.max_lifetime_minutes = legacy_lifetime;
+                Ok(())
+            })
+            .unwrap();
+        let first = f.core.provision(f.request()).await.unwrap();
+        let d = f.core.deployment(&first).unwrap();
+        assert_eq!(d.deadline_at - d.created_at, 12000); // $10 at the fixture's $3/hour.
+        f.core
+            .store
+            .update(|s| {
+                s.deployments[0].created_at = now() - 3600;
+                Ok(())
+            })
+            .unwrap();
+        f.core.finish(&first).await.unwrap();
+        let second = f.core.provision(f.request()).await.unwrap();
+        let d = f.core.deployment(&second).unwrap();
+        assert!(d.budget_usd <= 7.0 && d.budget_usd > 6.9);
+        assert_eq!(
+            d.deadline_at - d.created_at,
+            (d.budget_usd / 3.0 * 3600.0) as u32
+        );
+        f.core
+            .store
+            .update(|s| {
+                s.deployments[1].deadline_at = now() - 1;
+                Ok(())
+            })
+            .unwrap();
+        f.core.reconcile_all().await.unwrap();
+        assert_eq!(
+            f.core.deployment(&second).unwrap().stage,
+            DeploymentStage::Terminated
+        );
+        assert!(f.provider.pods.lock().unwrap().is_empty());
+    }
 }
 #[tokio::test]
 async fn provision_ready_enable_and_finish_are_separate_and_repeatable() {

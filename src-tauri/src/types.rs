@@ -56,6 +56,8 @@ pub struct Policy {
     pub paid_provisioning_enabled: bool,
     pub max_hourly_usd: f64,
     pub total_budget_usd: Option<f64>,
+    /// Legacy saved setting, retained for compatibility and no longer enforced.
+    #[serde(default)]
     pub max_lifetime_minutes: Option<u32>,
     pub acknowledge_offline_risk: bool,
     pub auto_terminate_delay_seconds: Option<u32>,
@@ -235,7 +237,6 @@ pub struct LaunchRequest {
     pub project_id: String,
     pub cli: CliKind,
     pub name: String,
-    pub allow_unverified: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]

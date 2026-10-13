@@ -1,8 +1,12 @@
 # Model compatibility and owner-led cloud tests
 
-Status: **No paid/live cloud tests performed.** Updated 8 October 2026.
+Status: **Partial owner-led Qwen3 Coder 30B startup/routing observation; full coding acceptance remains incomplete.** Updated 13 October 2026.
 
 The app implements the Codex and experimental Claude launch paths. It does not yet have a successful end-to-end self-hosted coding report for either CLI. Public Hub availability, a pinned image, localhost authentication tests, and compiled source are not substitutes for that report.
+
+On 13 October 2026, the owner ran Qwen3 Coder 30B on one H100 80GB HBM3 in AP-IN-1. The controller reached Ready about 6 minutes 36 seconds after creation. During requested read-only inspection, the active Codex `0.162.0-alpha.17.2` process, session config and rollout metadata agreed on `runpod_deck`, `qwen3-coder-30b` and the saved Pod endpoint. OpenAI authentication was disabled, the session had its own Codex home without `auth.json`, and a completed turn was recorded. The saved controller record later reported verified Pod absence and termination. No additional inference, management request or cleanup action was sent by the inspecting agent.
+
+These observations establish initial startup and routing for that session. They do not complete controlled editing, cancellation, concurrent-session, context-boundary or normal-subscription isolation tests. No passing catalog evidence was added. The owner removed candidate-test acknowledgements and visible warnings as a workflow preference; this checklist remains an evidence record rather than a launch gate.
 
 ## Candidate catalog
 
@@ -11,13 +15,13 @@ Exact revisions, digest, parser flags, context limits, sampling values and hardw
 | Profile | Proposed compute | Intended use | Live status |
 | --- | --- | --- | --- |
 | GPT OSS 20B | One H100 80GB | First Codex experiment; native MXFP4/Harmony path | Untested |
-| Qwen3 Coder 30B | One H100 80GB | Second model on the shared vLLM runtime | Untested |
+| Qwen3 Coder 30B | One H100 80GB | Shared vLLM runtime | Startup and one Codex session observed; full acceptance incomplete |
 
-Both profiles propose a 16k context and two sessions. Neither capacity nor tool reliability has been measured. Both expose an experimental Claude option; this is not an Anthropic-supported configuration. Installed launcher versions are detected and displayed in Setup without an exact-version allowlist. Compatibility evidence still matches the exact version used in a test.
+Both profiles propose a 16k context and two sessions. Concurrent capacity and systematic tool reliability have not been measured. Both expose an experimental Claude option; this is not an Anthropic-supported configuration. Installed launcher versions are detected and displayed in Setup without an exact-version allowlist. Compatibility evidence still matches the exact version used in a test.
 
 ## First live experiment
 
-Follow [Setup and provisioning](operating-guide.md). Set your total budget and maximum lifetime before enabling paid actions. Keep the app and Runpod console available throughout the test. Start with fully temporary storage and one session.
+Follow [Setup and provisioning](operating-guide.md). Set your total budget before enabling paid actions. New deployments use a budget-derived local deadline without a fixed lifetime cap. Keep the app and Runpod console available throughout the test. Start with fully temporary storage and one session.
 
 Use a disposable project containing a small function and a failing test. Ask the CLI to read both, fix the function, run the test with approval, then explain the output in a follow-up. Confirm the actual files changed locally. The app does not consider a text-only model response a coding-test pass.
 

@@ -41,7 +41,7 @@ test('suggestion shows context range, dated price and over-budget status; use se
   const tree = render({}, []); const content = text(tree);
   assert.match(content, /4,096–16,384 tokens/); assert.match(content, /default 8,192/);
   assert.match(content, /\$12\.50\/h/); assert.match(content, /Over \$10\.00\/h limit/);
-  assert.match(content, /Checked/); assert.match(content, /UNTESTED/);
+  assert.match(content, /Checked/); assert.match(content, /HARDWARE ESTIMATE/);
   const card = component('src/features/models/ModelSuggestion.vue', deck).setup({ model }, {})({}, []);
   assert.equal(find(card, n => n.type.fixtureComponent === 'ModelDetails.vue').props.metadata, model.metadata);
   assert.equal(find(card, n => n.type.fixtureComponent === 'ModelHardwareSuggestion.vue').props.model, model);

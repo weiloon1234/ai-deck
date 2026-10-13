@@ -2,7 +2,25 @@
 
 Host: Apple Silicon Mac, macOS 26.6.2. Implementation work: 5–6 October 2026; release-readiness review: 8 October 2026; provider assessment/refactor: 10 October 2026. **No Runpod or GPUtw compute, retained storage, model downloads or paid inference were created by these checks.**
 
-The latest **13 October 2026** creation-rejection diagnostics correction passed generated-contract drift, production frontend, Rust formatting/Clippy and the complete **126 regular tests** (73 Rust, 19 Python, 34 Vue). Four optional Rust probes remain ignored. Earlier checks and their limits are preserved below.
+The latest **13 October 2026** owner-requested control removal passed generated-contract drift, production frontend, Rust formatting/Clippy and the complete **129 regular tests** (74 Rust, 19 Python, 36 Vue). Four optional Rust probes remain ignored. Earlier checks and their limits are preserved below.
+
+## Candidate acknowledgements and fixed lifetime removed — 13 October 2026
+
+The owner explicitly selected removal of candidate-test warnings and the maximum-lifetime control while retaining hourly and total-budget limits. Removed launch/resume acknowledgement fields and native gates, session compatibility warnings, untested badges, the fixed-lifetime input and related confirmation copy. Manual configurations and AI estimates remain distinguishable; unknown metadata and compatibility evidence are preserved in saved records/details. No model was marked fully validated.
+
+Paid creation still requires the hourly ceiling, a finite positive total budget, paid opt-in, explicit confirmation and offline-risk acknowledgement. New deployments derive their local cleanup deadline from the remaining cumulative budget and current GPU rate. The shared budget helper also serves price adjustment and settings changes. Existing deadlines are retained and only shortened, including any earlier cap saved by an older version. The legacy lifetime field has a default-compatible decode, is preserved for saved-data compatibility and is ignored by validation/provisioning/settings enforcement. There is no state migration or automatic deadline extension. Runtime startup timeouts, readiness/authentication, original session bindings, capacity, isolation, ownership and verified cleanup remain.
+
+| Check | Result and limits |
+| --- | --- |
+| Generated contracts | `CARGO_NET_OFFLINE=true npm run contracts` passed. Removed the launch acknowledgement from the generated request type and documented the legacy lifetime field; defaults/schema/providers have no hand edits. |
+| Focused regressions | Native lifecycle/CLI and all 36 Vue tests passed. A missing or one-minute legacy lifetime does not cap new compute; cumulative prior cost reduces the next budget; expiration still requests verified cleanup. Fake CLIs launch/resume without acknowledgement while preserving unverified evidence, isolation, capacity and original bindings. Old caller JSON and saved state remain readable without extending deadlines. |
+| Final checks | `CARGO_NET_OFFLINE=true npm run check` and `CARGO_NET_OFFLINE=true npm test` passed on final sources: 74 Rust, 19 Python and 36 Vue cases; four optional probes ignored. Tests use disposable state, fake credentials/providers and authorized local listeners/PTYs. |
+| Isolated UI review | Actual Setup, Models, Deployment, launch and resume components inspected at 1280 × 850 and 960 × 650 using synthetic state and a clearly labeled terminal stub. No horizontal overflow or console warnings/errors observed. Launch/resume have no candidate checkbox; Setup has hourly/budget/idle cleanup controls without a lifetime field. Captures are ignored under `.local/control-review/`; the preview/tab were closed. The design hook returned no deterministic findings. This was a focused refinement, not a whole-app audit. |
+| Packaging | `CARGO_NET_OFFLINE=true npm run tauri -- build --bundles app` and `codesign --verify --deep --strict` passed for the final arm64 app with the existing identifier and ad-hoc signature. The new bundle was not installed or opened against owner state. Developer ID signing/notarization was not performed. |
+
+Before these changes, the owner requested read-only debugging of their live Qwen deployment and Codex session. Saved status, the active process routing flags, isolated config, rollout metadata and visible terminal were inspected without exposing credentials or sending an inference/provider request. The controller reported Ready, and the session's provider/model matched its bound Runpod endpoint; a completed turn was logged. A later read observed controller-reported termination/Pod absence. This is partial owner-led evidence, described in [model compatibility](model-compatibility.md), not a complete coding/concurrency report. No owner state, credentials, Pod or deadline was changed by the agent.
+
+A focused manual simplification pass removed obsolete gates and centralized existing budget calculations; `/simplify` was unavailable. README, feature docs, decisions and applicable root/native/frontend/CLI/documentation AGENTS were aligned. Existing `.gitignore` and `.gitattributes` cover the ignored preview/build outputs and edited source types; no new rules, dependencies or lockfiles were needed. `git diff --check` passed.
 
 ## Immediate creation rejection — 13 October 2026
 

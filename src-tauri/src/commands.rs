@@ -79,12 +79,12 @@ pub async fn save_settings(core: Core<'_>, mut settings: AppSettings) -> Result<
             .map(|d| crate::app_core::estimated_cost(d, at))
             .sum();
         for d in s.deployments.iter_mut().filter(|d| !d.stage.is_terminal()) {
-            if let Some(minutes) = settings.policy.max_lifetime_minutes {
-                d.deadline_at = d.deadline_at.min(d.created_at.saturating_add(minutes * 60));
-            }
             if let Some(total) = settings.policy.total_budget_usd {
-                let seconds = ((total - spent).max(0.0) / d.hourly_usd * 3600.0) as u32;
-                d.deadline_at = d.deadline_at.min(at.saturating_add(seconds));
+                d.deadline_at = d.deadline_at.min(crate::app_core::budget_deadline(
+                    at,
+                    total - spent,
+                    d.hourly_usd,
+                ));
             }
         }
         s.settings = settings;
@@ -188,8 +188,8 @@ pub async fn launch_session(core: Core<'_>, request: LaunchRequest) -> Result<St
     core.inner().launch(request).await
 }
 #[tauri::command]
-pub async fn resume_session(core: Core<'_>, id: String, allow_unverified: bool) -> Result<()> {
-    core.inner().resume(&id, allow_unverified).await
+pub async fn resume_session(core: Core<'_>, id: String) -> Result<()> {
+    core.inner().resume(&id).await
 }
 #[tauri::command]
 pub fn close_session(core: Core<'_>, id: String) -> Result<()> {

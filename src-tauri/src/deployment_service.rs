@@ -1,5 +1,5 @@
 use crate::{
-    app_core::{estimated_cost, AppCore},
+    app_core::{budget_deadline, estimated_cost, AppCore},
     cloud_provider::Hardware,
     credential_store::inference_credential,
     error::{AppError, Result},
@@ -81,10 +81,6 @@ impl AppCore {
                 "The remaining budget is less than one minute at the current GPU rate.",
             ));
         }
-        let lifetime = policy
-            .max_lifetime_minutes
-            .ok_or_else(|| AppError::invalid("Set a maximum Pod lifetime in Setup."))?
-            * 60;
         let id = uuid::Uuid::new_v4().to_string();
         let created = now();
         let credential_ref = format!("inference-{id}");
@@ -100,7 +96,7 @@ impl AppCore {
             created_at: created,
             updated_at: created,
             terminated_at: None,
-            deadline_at: created.saturating_add(lifetime.min((remaining / hourly * 3600.0) as u32)),
+            deadline_at: budget_deadline(created, remaining, hourly),
             verified_at: None,
             startup_completed: Some(false),
             hourly_usd: hourly,
@@ -182,10 +178,9 @@ impl AppCore {
             self.store.update(|s| {
                 let d = s.deployments.iter_mut().find(|d| d.id == id).unwrap();
                 d.hourly_usd = hourly;
-                d.deadline_at = d.deadline_at.min(
-                    d.created_at
-                        .saturating_add((d.budget_usd / hourly * 3600.0) as u32),
-                );
+                d.deadline_at =
+                    d.deadline_at
+                        .min(budget_deadline(d.created_at, d.budget_usd, hourly));
                 Ok(())
             })?;
         }
@@ -355,19 +350,14 @@ pub fn validate_policy(p: &Policy) -> Result<()> {
         || p.max_hourly_usd > HOURLY_CEILING_USD
         || p.total_budget_usd
             .is_some_and(|v| !v.is_finite() || v <= 0.0 || v > 10000.0)
-        || p.max_lifetime_minutes
-            .is_some_and(|v| !(1..=1440).contains(&v))
         || p.auto_terminate_delay_seconds
             .is_some_and(|v| !(30..=3600).contains(&v))
     {
-        return Err(AppError::invalid("Use a positive hourly limit at or below $10, a positive total budget, and a lifetime of 1–1440 minutes. Idle cleanup delays must be 30–3600 seconds."));
+        return Err(AppError::invalid("Use a positive hourly limit at or below $10 and a positive total budget. Idle cleanup delays must be 30–3600 seconds."));
     }
-    if p.paid_provisioning_enabled
-        && (p.total_budget_usd.is_none()
-            || p.max_lifetime_minutes.is_none()
-            || !p.acknowledge_offline_risk)
+    if p.paid_provisioning_enabled && (p.total_budget_usd.is_none() || !p.acknowledge_offline_risk)
     {
-        return Err(AppError::invalid("Paid provisioning requires a total budget, maximum lifetime, and acknowledgement of the offline cleanup limitation."));
+        return Err(AppError::invalid("Paid provisioning requires a total budget and acknowledgement of the offline cleanup limitation."));
     }
     Ok(())
 }

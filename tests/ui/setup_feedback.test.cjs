@@ -38,6 +38,20 @@ test('setup tracks unsaved edits, saves normalized settings and clears stale suc
   assert.equal(setup.dirty.value, true);
 });
 
+test('spending setup retains hourly and budget controls without a lifetime field', async () => {
+  const deck = fixture();
+  deck.state.value.settings.policy.maxLifetimeMinutes = 1; // Retained legacy data is hidden.
+  const render = component('src/features/setup/SetupView.vue', deck).setup({}, {});
+  const tree = render({}, []);
+  assert.match(text(tree), /Maximum GPU rate|Total experiment budget/);
+  assert.doesNotMatch(text(tree), /Maximum deployment lifetime/);
+  const setup = component('src/features/setup/SetupView.vue', deck, false).setup({}, { expose() {} });
+  setup.totalBudget.value = 30; await setup.save();
+  assert.equal(deck.calls[0].args.settings.policy.totalBudgetUsd, 30);
+  assert.equal(deck.calls[0].args.settings.policy.maxHourlyUsd, defaults.policy.maxHourlyUsd);
+  assert.equal(deck.calls[0].args.settings.policy.maxLifetimeMinutes, 1);
+});
+
 test('provider selection is saved immediately, clears key draft and preserves other unsaved settings', async () => {
   const deck = fixture();
   const setup = component('src/features/setup/SetupView.vue', deck, false).setup({}, { expose() {} });

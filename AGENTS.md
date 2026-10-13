@@ -15,8 +15,9 @@
 
 AI Deck manages temporary cloud inference for local coding projects. Read [README.md](README.md) for architecture and [docs/decisions.md](docs/decisions.md) for approved scope.
 
-- No paid cloud tests, resource creation, model downloads or paid inference are authorized by default. The owner will perform live acceptance. Do not turn on paid provisioning or invent total-budget/lifetime settings for testing.
-- Preserve the configured hourly ceiling and explicit creation confirmation. Local timers are not independent offline cost protection. Retained storage remains billable after Pod deletion.
+- No paid cloud tests, resource creation, model downloads or paid inference are authorized by default. The owner will perform live acceptance. Do not turn on paid provisioning or invent total-budget settings for testing.
+- The owner removed candidate-test acknowledgements/warnings and the fixed maximum-lifetime control. Do not restore these gates or infer passing evidence from their removal. New cleanup deadlines derive only from remaining budget and GPU rate; saved deadlines must not be extended. The legacy lifetime setting is retained for saved-data compatibility and ignored.
+- Preserve the configured hourly ceiling, total budget and explicit creation confirmation. Local timers are not independent offline cost protection. Retained storage remains billable after Pod deletion.
 - Keep Provision, Enable and Open CLI separate. Closing a session/window must not silently terminate compute. Finish must preserve ownership checks, verify cloud deletion and wait for affected local process cleanup.
 - Preserve saved deployment/session bindings. Catalog edits and new selections must not silently retarget existing sessions.
 - AI hardware/context estimates, published model metadata, provider price snapshots and measured compatibility evidence are different data. Label them accurately. Never present mocked tests or generated suggestions as successful live model validation.

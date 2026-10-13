@@ -8,7 +8,7 @@ The app is built with **Tauri, Vue 3, TypeScript and Rust**. A small Python supe
 
 1. **Choose a model.** Use a bundled catalog profile or paste a Hugging Face URL. The app reads the model's metadata and asks your signed-in local Codex CLI to suggest hardware for one coding session.
 2. **Review the model and cost.** See published model details alongside the suggested GPU memory, usable context range, CPU memory, disk/cache requirements and Runpod price snapshots. If Codex is unsure, choose **Edit configuration → Try experimentally** to prepare your own untested settings. Saving does not create compute; refreshing prices does not rerun Codex.
-3. **Provision Runpod.** Choose compute, region and temporary or retained model storage. Paid creation requires opt-in, spending/lifetime limits and confirmation.
+3. **Provision Runpod.** Choose compute, region and temporary or retained model storage. Paid creation requires opt-in, hourly and total-budget limits and confirmation.
 4. **Enable the endpoint.** After the model starts, the native app checks authentication, model identity and inference before allowing it to serve new sessions.
 5. **Open a coding CLI.** Each embedded terminal uses a local project folder, its own CLI state and an explicit binding to the selected deployment.
 6. **Finish the deployment.** Interrupt affected local sessions and verify that the owned Pod has been deleted.
@@ -17,7 +17,7 @@ Closing a terminal or window leaves the Pod running. Retained network volumes su
 
 ## Current status
 
-The desktop workflow, provider setup, experimental model editor and creation-recovery diagnostics pass the **13 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **126 tests** (73 Rust, 19 Python, 34 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **Agent-run checks have used no paid Runpod or GPUtw operations.** Owner-led startup attempts have exposed access/configuration problems; no successful model inference or coding compatibility is recorded. Bundled profiles, imported AI suggestions and manually configured experiments remain unverified candidates.
+The desktop workflow, provider setup, experimental model editor and creation-recovery diagnostics pass the **13 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **129 tests** (74 Rust, 19 Python, 36 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **Agent-run checks have used no paid Runpod or GPUtw operations.** Owner-led Qwen3 Coder 30B startup and Codex routing were observed successfully on an H100; full coding compatibility and concurrent-session capacity remain unverified. Bundled profiles, imported AI suggestions and manually configured experiments remain unverified candidates.
 
 Paid provisioning defaults to off. The maximum configurable GPU rate is **USD 10/hour**; storage is separate. A published model context limit describes its saved configuration, while the AI's usable context range estimates what might fit the proposed GPU setup. Neither is a measured performance guarantee.
 
@@ -83,6 +83,8 @@ Runpod and GPUtw management keys use separate macOS Keychain entries. Deployment
 ### Remote runtime and lifecycle
 
 The native provisioner sends the reusable `containers/vllm-runtime/launcher.py` supervisor to the pinned vLLM image. The supervisor checks model access and cache capacity, downloads the pinned weights, starts vLLM and exposes authenticated startup status. Inference goes directly to vLLM; there is no custom response-translation service.
+
+Candidate-test warnings and acknowledgements are removed. Hourly and cumulative total-budget limits, paid creation confirmation and verified endpoint checks remain. New local cleanup deadlines derive from the remaining budget and GPU rate; there is no fixed maximum-lifetime cap. Previously saved deadlines are retained, and budget timers are not independent offline protection.
 
 Provisioning, enabling and opening a CLI remain separate actions. Durable creation intent, ownership checks and reconciliation handle uncertain provider responses. Finish waits for verified cloud deletion and local process cleanup. Stopping a process or container alone is not proof that Runpod billing has stopped. Independent offline expiry is not verified.
 
@@ -168,11 +170,11 @@ cargo test --manifest-path src-tauri/Cargo.toml --test installed_cli_smoke insta
 cargo test --manifest-path src-tauri/Cargo.toml --test installed_cli_smoke installed_claude -- --ignored --nocapture
 ```
 
-A rejection probe validates routing and arguments, not successful model compatibility. You can try any installed CLI version without an exact-version allowlist. Detection records the version; launch and analysis retain their isolation flags. An unsupported flag can cause the CLI to fail, and untested model combinations still use the existing candidate-test acknowledgement. The app does not install or upgrade your CLIs. Other opt-in probes and their results are described in [model import](docs/model-import.md) and [local validation](docs/local-validation.md).
+A rejection probe validates routing and arguments, not successful model compatibility. You can try any installed CLI version without an exact-version allowlist. Detection records the version; launch and analysis retain their isolation flags. An unsupported flag can cause the CLI to fail. Launch and resume do not require a candidate-test acknowledgement; compatibility evidence remains separate from launch permission. The app does not install or upgrade your CLIs. Other opt-in probes and their results are described in [model import](docs/model-import.md) and [local validation](docs/local-validation.md).
 
 ## First owner-led live test
 
-After the local checks, add the Runpod key through **Setup** and fund the account through Runpod. Adding a key or credits does not create a Pod. Set your own total experiment budget and maximum lifetime, review the hourly rate and offline cleanup limitation, then enable paid provisioning. Keep credentials out of repository files and diagnostics.
+After the local checks, add the Runpod key through **Setup** and fund the account through Runpod. Adding a key or credits does not create a Pod. Set your own total experiment budget, review the hourly rate and offline cleanup limitation, then enable paid provisioning. Keep credentials out of repository files and diagnostics.
 
 Use a disposable project and temporary storage for the first experiment. Follow **Provision → Enable → Open CLI**, then ask Codex to read a small failing test, edit its function, run the test with approval and use the result in a follow-up. Check the actual local diff, interrupt/resume behavior and normal subscription isolation. Ready only proves the app's endpoint checks; it does not prove this coding loop works.
 

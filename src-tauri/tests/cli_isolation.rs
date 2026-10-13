@@ -129,7 +129,6 @@ async fn no_route_or_unavailable_original_binding_cannot_launch_or_resume() {
                 project_id: "x".into(),
                 cli: CliKind::Codex,
                 name: "x".into(),
-                allow_unverified: true
             })
             .await
             .unwrap_err()
@@ -148,7 +147,7 @@ async fn no_route_or_unavailable_original_binding_cannot_launch_or_resume() {
         })
         .unwrap();
     f.core.finish(&id).await.unwrap();
-    assert!(f.core.resume(&sid, true).await.is_err());
+    assert!(f.core.resume(&sid).await.is_err());
     assert!(!f.core.terminals.is_running(&sid));
 }
 
@@ -193,15 +192,13 @@ async fn two_fixture_clis_keep_independent_projects_history_capacity_and_resume_
         project_id: project.into(),
         cli: CliKind::Codex,
         name: project.into(),
-        allow_unverified: true,
     };
-    let mut unacknowledged = request("a");
-    unacknowledged.allow_unverified = false;
-    assert_eq!(
-        f.core.launch(unacknowledged).await.unwrap_err().code,
-        "compatibility_unverified"
-    );
-    let first = f.core.launch(request("a")).await.unwrap();
+    // Older callers may still send the removed acknowledgement; it is not a gate.
+    let legacy_request: LaunchRequest = serde_json::from_value(serde_json::json!({
+        "projectId":"a", "cli":"codex", "name":"a", "allowUnverified":false
+    }))
+    .unwrap();
+    let first = f.core.launch(legacy_request).await.unwrap();
     let second = f.core.launch(request("b")).await.unwrap();
     assert_eq!(
         f.core.launch(request("a")).await.unwrap_err().code,
@@ -262,7 +259,7 @@ async fn two_fixture_clis_keep_independent_projects_history_capacity_and_resume_
             Ok(())
         })
         .unwrap();
-    f.core.resume(&first, true).await.unwrap();
+    f.core.resume(&first).await.unwrap();
     assert_eq!(f.core.store.read().unwrap().sessions[0].deployment_id, id);
     assert!(f.core.deployment(&id).unwrap().cleanup_due_at.is_none());
     f.core.finish(&id).await.unwrap();

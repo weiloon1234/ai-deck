@@ -281,7 +281,6 @@ impl Fixture {
                 s.settings.policy = Policy {
                     paid_provisioning_enabled: true,
                     total_budget_usd: Some(10.0),
-                    max_lifetime_minutes: Some(60),
                     acknowledge_offline_risk: true,
                     ..Policy::default()
                 };
