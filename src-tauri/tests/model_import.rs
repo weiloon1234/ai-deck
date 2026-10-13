@@ -591,7 +591,7 @@ async fn experimental_configuration_keeps_full_weight_and_supported_task_require
         .await
         .unwrap();
     let original = f.core.store.read().unwrap().imported_models.remove(0);
-    for failure in ["adapter", "format", "config", "task"] {
+    for failure in ["adapter", "format", "task"] {
         f.core
             .store
             .update(|s| {
@@ -599,7 +599,6 @@ async fn experimental_configuration_keeps_full_weight_and_supported_task_require
                 match failure {
                     "adapter" => model.metadata.is_adapter = true,
                     "format" => model.metadata.weight_format = Some("gguf".into()),
-                    "config" => model.metadata.config_json.clear(),
                     _ => model.metadata.pipeline_tag = Some("sentence-similarity".into()),
                 }
                 s.imported_models[0] = model;
@@ -618,6 +617,77 @@ async fn experimental_configuration_keeps_full_weight_and_supported_task_require
         );
     }
     assert_eq!(f.provider.creates.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn missing_local_config_allows_only_explicit_trials_and_retains_protected_model_access() {
+    for access in [
+        ModelAccess::Public,
+        ModelAccess::Gated,
+        ModelAccess::Private,
+    ] {
+        let f = Fixture::new();
+        let hub = Hub(AtomicUsize::new(0));
+        let analyzer = Analyzer::default();
+        f.core
+            .import_model_using(URL, false, &hub, &analyzer)
+            .await
+            .unwrap();
+        f.core
+            .store
+            .update(|s| {
+                let model = &mut s.imported_models[0];
+                model.metadata.config_json.clear();
+                model.metadata.access = access.clone();
+                // Even a positive AI assessment cannot automatically launch a missing-config model.
+                model.profile = model.build_profile(10.0)?;
+                assert!(model.profile.is_none());
+                model.analysis.runtime_compatible = false;
+                model.analysis.tool_parser = None;
+                Ok(())
+            })
+            .unwrap();
+        let before = f.core.store.read().unwrap().imported_models.remove(0);
+        f.core
+            .configure_imported_model(experimental_request(&before))
+            .await
+            .unwrap();
+        let state = f.core.store.read().unwrap();
+        let saved = &state.imported_models[0];
+        let profile = saved.profile.as_ref().unwrap();
+        assert_eq!(profile.model.access, access);
+        assert!(saved.metadata.config_json.is_empty());
+        assert_eq!(
+            serde_json::to_value(&saved.analysis).unwrap(),
+            serde_json::to_value(&before.analysis).unwrap()
+        );
+        assert!(profile.model.evidence.is_empty());
+        assert!(profile
+            .model
+            .limitations
+            .iter()
+            .any(|l| l.contains("config was unavailable locally")));
+        assert!(!state.settings.policy.paid_provisioning_enabled);
+        assert!(state.deployments.is_empty());
+        let mut request = f.request();
+        request.profile_id = saved.id.clone();
+        request.profile_fingerprint = profile.fingerprint.clone();
+        assert_eq!(
+            f.core.provision(request.clone()).await.unwrap_err().code,
+            "paid_actions_disabled"
+        );
+        if access != ModelAccess::Public {
+            f.authorize_mock();
+            assert_eq!(
+                f.core.provision(request).await.unwrap_err().code,
+                "hugging_face_secret"
+            );
+            assert!(f.core.store.read().unwrap().deployments.is_empty());
+        }
+        assert_eq!(f.provider.creates.load(Ordering::SeqCst), 0);
+        assert_eq!(analyzer.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(hub.0.load(Ordering::SeqCst), 1);
+    }
 }
 
 #[tokio::test]

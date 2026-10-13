@@ -208,7 +208,8 @@ impl ImportedModel {
             )
         {
             Some("This runtime needs full safetensors or PyTorch weights. Adapter-only and other weight formats cannot be configured here.")
-        } else if self.metadata.config_json.is_empty() {
+        } else if self.experimental_configuration.is_none() && self.metadata.config_json.is_empty()
+        {
             Some("Model configuration metadata is missing. Analyze again to retrieve it before configuring a trial.")
         } else if self
             .metadata
@@ -255,7 +256,8 @@ impl ImportedModel {
                         .is_some_and(|p| p.is_finite() && p > 0.0 && p <= hourly_limit)
             })
             .collect();
-        // An explicit owner configuration may bypass AI uncertainty, not spending or metadata requirements.
+        // The runtime fetches the pinned config, including with a protected-model secret.
+        // Explicit trials may lack a local config; spending and weight/task requirements remain.
         if self.provider != ProviderId::Runpod
             || (c.is_none() && (!a.runtime_compatible || a.tool_parser.is_none()))
             || gpus.is_empty()
@@ -275,7 +277,7 @@ impl ImportedModel {
             sampling: Sampling { temperature: 0.7, top_p: 0.95 }, tool_parser: c.map_or_else(|| a.tool_parser.clone(), |c| c.tool_parser.clone()), reasoning_parser: c.map_or_else(|| a.reasoning_parser.clone(), |c| c.reasoning_parser.clone()),
             chat_template: None, model_cache_path: "/workspace/cache/huggingface".into(), compile_cache_path: "/workspace/cache/compile".into(),
             supports_responses: true, supports_messages: true, evidence: vec![],
-            limitations: std::iter::once(if c.is_some() { format!("Owner-configured experimental trial for one coding session; no live compatibility or memory test has been performed. Codex assessment: {}", a.compatibility_reason) } else { "AI hardware suggestion for one coding session; no live compatibility or memory test has been performed.".into() }).chain(a.warnings.clone()).collect(),
+            limitations: std::iter::once(if c.is_some() { format!("Owner-configured experimental trial for one coding session; no live compatibility or memory test has been performed. Codex assessment: {}", a.compatibility_reason) } else { "AI hardware suggestion for one coding session; no live compatibility or memory test has been performed.".into() }).chain(self.metadata.config_json.is_empty().then(|| "Model config was unavailable locally; architecture and published context remain unknown. Startup must retrieve the pinned files with the required model access.".into())).chain(a.warnings.clone()).collect(),
         };
         let json = serde_json::to_string(&CatalogDocument {
             schema_version: 1,

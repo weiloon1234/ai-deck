@@ -2,7 +2,23 @@
 
 Host: Apple Silicon Mac, macOS 26.6.2. Implementation work: 5–6 October 2026; release-readiness review: 8 October 2026; provider assessment/refactor: 10 October 2026. **No Runpod or GPUtw compute, retained storage, model downloads or paid inference were created by these checks.**
 
-The latest **13 October 2026** experimental model editor passed generated-contract drift, production frontend, Rust formatting/Clippy and **117 regular tests** (67 Rust, 19 Python, 31 Vue). Four optional Rust probes are ignored by the regular suite and were not rerun for this change. Earlier installed-CLI checks and their limits are preserved below.
+The latest **13 October 2026** missing-config correction passed generated-contract drift, production frontend, Rust formatting/Clippy and **119 regular tests** (68 Rust, 19 Python, 32 Vue). Four optional Rust probes are ignored by the regular suite and were not rerun for this change. Earlier installed-CLI checks and their limits are preserved below.
+
+## Missing local model config — 13 October 2026
+
+The owner reported that Try experimentally still demanded reanalysis because local config metadata was empty. Anonymous reads of the previously selected [Qwen3.8 model's public metadata](https://huggingface.co/api/models/orcarouter/Qwen3.8-27B-Uncensored/revision/main?blobs=true) identified revision `11a200330368fd04fa7b2f0b1e7f20bd819cf621`, `gated: auto` and a listed config file. The small raw config request returned HTTP 401 with `GatedRepo`. No token, account access, model weights or paid compute was used. Reanalysis cannot resolve that anonymous access restriction.
+
+Removed the local-config requirement only for explicit experimental settings. Automatic profiles still require config, and unavailable architecture/context facts remain unknown. The saved profile includes this limitation, and the editor explains the protected-model secret setup before paid creation. The existing runtime retrieves pinned model files using the Runpod secret. Full weights, supported tasks, cache/storage, structured names, current quotes, spending/confirmation, protected-access and cleanup checks remain unchanged. No authentication or runtime flags were added.
+
+| Check | Result and limits |
+| --- | --- |
+| Focused native regression and `npm run test:ui` | Passed. Missing config permits explicit public/gated/private trials while blocking automatic profiles; AI analysis/config remain unchanged and no passing evidence is added. Paid-disabled and protected-secret gates reject before any provider creation. The UI explains access setup and saves through the existing command without paid operations or reanalysis. |
+| `CARGO_NET_OFFLINE=true npm run check` | Passed: generated drift, Vue/TypeScript production build, Rust formatting and Clippy with warnings denied. No shared contracts changed. |
+| `CARGO_NET_OFFLINE=true npm test` | Passed: 68 Rust, 19 Python and 32 Vue tests, with four opt-in probes ignored. Fake services/credentials, disposable state and authorized local listener/PTY permission only. |
+| Isolated browser review | Actual components rendered with a gated, empty-config fixture at 1280 × 850 and 960 × 650. Guidance and the trial action fit without horizontal overflow; a fake save opens Deployment with paid provisioning disabled. No console warnings/errors were observed. Captures are ignored under `.local/model-configuration/missing-config-*.png`. This is a narrow correction, not a fresh whole-app audit or live model test. The automatic design hook reported no deterministic findings. |
+| `CARGO_NET_OFFLINE=true npm run tauri -- build --bundles app` and `codesign --verify --deep --strict` | Passed on final source with the existing app identifier and ad-hoc signing configuration. The rebuilt arm64 app was not opened against owner state; Developer ID signing/notarization was not performed. |
+
+No owner credentials/state, real subscription analysis, installed-CLI probe, paid cloud test, model download or inference was used. A focused manual simplification pass retained the existing profile builder, protected-access gate and runtime rather than adding another credential route. README, model guidance and root/native/frontend AGENTS describe the correction. Existing ignore/attribute rules cover the ignored preview and desktop output; dependencies, lockfiles and generated contracts remain unchanged.
 
 ## Experimental model configuration — 13 October 2026
 

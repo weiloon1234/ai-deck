@@ -17,7 +17,7 @@ Closing a terminal or window leaves the Pod running. Retained network volumes su
 
 ## Current status
 
-The desktop workflow, provider setup and experimental model editor pass the **13 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **117 tests** (67 Rust, 19 Python, 31 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **No paid Runpod or GPUtw tests have been performed.** Bundled profiles, imported AI suggestions and manually configured experiments are unverified candidates. Live model inference and coding compatibility on the chosen GPU remain owner-operated checks.
+The desktop workflow, provider setup and experimental model editor pass the **13 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **119 tests** (68 Rust, 19 Python, 32 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **No paid Runpod or GPUtw tests have been performed.** Bundled profiles, imported AI suggestions and manually configured experiments are unverified candidates. Live model inference and coding compatibility on the chosen GPU remain owner-operated checks.
 
 Paid provisioning defaults to off. The maximum configurable GPU rate is **USD 10/hour**; storage is separate. A published model context limit describes its saved configuration, while the AI's usable context range estimates what might fit the proposed GPU setup. Neither is a measured performance guarantee.
 
@@ -68,7 +68,7 @@ Vue organizes the app into Setup, Models, Projects, Deployments and Sessions. `s
 
 ### Model library and configuration
 
-Hugging Face imports resolve a URL to an immutable revision, read bounded metadata/config/card files, obtain Runpod hardware prices and request structured analysis from the local Codex CLI. Rust validates the result and calculates prices from provider quotes. A usable proposal becomes an untested catalog profile. **Edit configuration** can create an experimental profile even when Codex is uncertain, while preserving its original analysis. The native save path refreshes the saved provider's quotes, validates structured settings and retains spending and full-weight requirements. Unsupported formats and incomplete model metadata remain saved for reference.
+Hugging Face imports resolve a URL to an immutable revision, read bounded metadata/config/card files, obtain Runpod hardware prices and request structured analysis from the local Codex CLI. Rust validates the result and calculates prices from provider quotes. A usable proposal becomes an untested catalog profile. **Edit configuration** can create an experimental profile even when Codex is uncertain or the local config was unavailable, while preserving its original analysis and unknown facts. The native save path refreshes the saved provider's quotes, validates structured settings and retains spending, full-weight and protected-access requirements. The runtime retrieves pinned config files during startup; unsupported formats/tasks remain saved for reference.
 
 Model facts come from saved Hugging Face metadata/config. Hardware and usable-context suggestions come from Codex. The app displays these separately and reuses the same components in the model library and deployment preparation. It does not download model weights during import.
 

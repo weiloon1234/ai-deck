@@ -94,6 +94,19 @@ test('experimental editing retains failed drafts and prevents stale or over-budg
   model.profileVersion = 2;
   assert.equal(setup.changed.value, true); await setup.tryExperimentally(); assert.equal(deck.view.value, 'models');
 });
+test('missing protected config explains the secret setup without blocking an explicit trial', async () => {
+  const deck = fixture(); const model = savedModel(); model.profile = null;
+  model.metadata.configJson = ''; model.metadata.access = 'gated'; model.analysis.runtimeCompatible = false;
+  const render = component('src/features/models/ModelConfigurationEditor.vue', deck).setup({ model }, { emit() {} });
+  const tree = render({}, []);
+  assert.match(text(tree), /architecture and published context remain unknown/);
+  assert.match(text(tree), /Runpod Secrets/); assert.match(text(tree), /only its secret name in Setup/);
+  deck.call = async (command, args) => { deck.calls.push({ command, args }); return command === 'imported_model_hardware' ? experimentalHardware : undefined; };
+  const setup = component('src/features/models/ModelConfigurationEditor.vue', deck, false).setup({ model }, { emit() {}, expose() {} });
+  await setup.loadHardware(); await setup.tryExperimentally();
+  assert.deepEqual(deck.calls.map(c => c.command), ['imported_model_hardware', 'configure_imported_model']);
+  assert.equal(deck.view.value, 'deployments'); assert.equal(model.metadata.configJson, '');
+});
 test('experimental editing uses saved provider options and directs a different selected provider to setup', async () => {
   const deck = fixture(); deck.state.value.settings.provider = 'gputw'; const model = savedModel();
   deck.call = async command => command === 'imported_model_hardware' ? experimentalHardware : undefined;
