@@ -294,6 +294,7 @@ impl Fixture {
         ProvisionRequest {
             provider: ProviderId::Runpod,
             profile_id: p.model.id,
+            profile_fingerprint: p.fingerprint,
             gpu_type: p.model.gpu_types[0].clone(),
             data_center_id: "fixture-dc".into(),
             network_volume_id: None,

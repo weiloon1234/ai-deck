@@ -16,6 +16,7 @@ const selectedImported = computed(() => state.value?.importedModels.find(model =
 const gpu = ref(''); const dataCenter = ref(''); const volume = ref('');
 const provisionConfirm = ref(false); const finishConfirm = ref(false); const absenceConfirm = ref(false); const typedName = ref('');
 watch(profile, p => { gpu.value = p?.model.gpuTypes[0] ?? ''; dataCenter.value = ''; volume.value = ''; }, { immediate: true });
+watch(() => profile.value?.fingerprint, () => { provisionConfirm.value = false; });
 watch(dataCenter, () => { volume.value = ''; });
 watch(providerId, () => { hardware.value = null; dataCenter.value = ''; volume.value = ''; provisionConfirm.value = false; }, { flush: 'sync' });
 const locations = computed(() => matchingHardware.value?.dataCenters.filter(dc => dc.gpuAvailability.some(g => g.gpuTypeId === gpu.value && ['high', 'medium', 'low'].includes(g.stockStatus?.toLowerCase() ?? ''))) ?? []);
@@ -31,7 +32,7 @@ async function refreshHardware() {
   });
 }
 async function provision() {
-  const id = await deck.perform('Provisioning compute', () => deck.call<string>('provision', { request: { provider: providerId.value, profileId: selectedProfileId.value, gpuType: gpu.value, dataCenterId: dataCenter.value, networkVolumeId: volume.value || null, acknowledgePaidCreation: true } }));
+  const id = await deck.perform('Provisioning compute', () => deck.call<string>('provision', { request: { provider: providerId.value, profileId: selectedProfileId.value, profileFingerprint: profile.value?.fingerprint, gpuType: gpu.value, dataCenterId: dataCenter.value, networkVolumeId: volume.value || null, acknowledgePaidCreation: true } }));
   if (id) provisionConfirm.value = false;
 }
 async function finish() {
@@ -57,6 +58,7 @@ async function finish() {
       <label>Location<select v-model="dataCenter"><option value="">{{ matchingHardware ? 'Choose available location' : 'Check availability first' }}</option><option v-for="dc in locations" :key="dc.id" :value="dc.id">{{ dc.location }} · {{ dc.id }}</option></select></label>
       <label>Model storage<select v-model="volume"><option value="">Fully temporary · download each run</option><option v-for="v in volumes" :key="v.id" :value="v.id" :disabled="v.size < (profile?.model.minCacheGb ?? 0)">Retain {{ v.name }} · {{ v.size }} GB{{ v.size < (profile?.model.minCacheGb ?? 0) ? ' · too small' : '' }}</option></select></label>
     </div>
+    <div v-if="selectedImported?.experimentalConfiguration" class="notice warning"><strong>Experimental configuration · untested</strong><p>{{ profile?.model.gpuCount }} × {{ profile?.model.gpuTypes.join(', ') }} · {{ profile?.model.contextTokens.toLocaleString() }} context tokens · {{ profile?.model.minCacheGb }} GB cache. Your configuration is used for this deployment; Codex’s estimate is shown separately below.</p></div>
     <details v-if="selectedImported" class="model-review selected-model-details"><summary>Review model details, hardware and prices</summary><div class="model-overview"><ModelDetails :metadata="selectedImported.metadata" /><ModelHardwareSuggestion :model="selectedImported" /></div></details>
     <p v-if="profile" class="small muted">Model cache requirement: {{ profile.model.minCacheGb }} GB, including working space. Available space is also checked inside the Pod before downloading.</p>
     <p class="storage-note">{{ volume ? 'This network volume survives Pod termination and continues to incur storage charges. Storage costs are separate from the GPU estimate.' : 'Pod-local model files are removed on termination. Your local project and CLI history stay on this Mac.' }}</p>

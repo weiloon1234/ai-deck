@@ -38,6 +38,9 @@ impl AppCore {
             .into_iter()
             .find(|p| p.model.id == request.profile_id)
             .ok_or_else(|| AppError::invalid("Select a catalog model."))?;
+        if profile.fingerprint != request.profile_fingerprint {
+            return Err(AppError::invalid("The model configuration changed. Review the deployment and confirm its updated settings before creating compute."));
+        }
         if !profile.model.gpu_types.contains(&request.gpu_type) {
             return Err(AppError::invalid(
                 "This GPU is not included in the selected profile.",

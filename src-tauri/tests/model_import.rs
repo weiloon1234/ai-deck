@@ -4,8 +4,9 @@ use ai_deck::{
     codex_model_analyzer::{AnalysisInput, ModelAnalyzer},
     error::{AppError, Result},
     hugging_face_client::{parse_metadata, HubModel, HuggingFaceApi, ModelSource},
-    model_analysis::{quotes, ModelAnalysis},
+    model_analysis::{quotes, ExperimentalModelConfiguration, ImportedModel, ModelAnalysis},
     model_catalog::{builtin_catalog, ModelAccess},
+    model_import_service::ConfigureImportedModelRequest,
     state_store::StateStore,
 };
 use async_trait::async_trait;
@@ -278,6 +279,14 @@ async fn failed_refresh_preserves_saved_analysis_and_deployment_snapshots() {
     f.authorize_mock();
     let mut request = f.request();
     request.profile_id = imported.id.clone();
+    request.profile_fingerprint = f
+        .core
+        .catalog()
+        .unwrap()
+        .into_iter()
+        .find(|p| p.model.id == imported.id)
+        .unwrap()
+        .fingerprint;
     let deployment_id = f.core.provision(request).await.unwrap();
     let before = f
         .core
@@ -341,6 +350,274 @@ async fn unsupported_and_over_budget_models_remain_saved_without_launch_profiles
     model.quotes[0].hourly_usd = Some(10.01);
     assert!(model.build_profile(10.0).unwrap().is_none());
     assert_eq!(model.quotes[0].hourly_usd, Some(10.01));
+}
+
+fn experimental_request(model: &ImportedModel) -> ConfigureImportedModelRequest {
+    ConfigureImportedModelRequest {
+        id: model.id.clone(),
+        expected_profile_version: model.profile_version,
+        configuration: ExperimentalModelConfiguration {
+            gpu_type: builtin_catalog().unwrap()[0].model.gpu_types[0].clone(),
+            gpu_count: 1,
+            min_cpu_ram_gb: 48,
+            disk_gb: 80,
+            min_cache_gb: 40,
+            context_tokens: 4096,
+            tool_parser: None,
+            reasoning_parser: None,
+            quantization: None,
+        },
+    }
+}
+
+#[tokio::test]
+async fn experimental_configuration_bypasses_ai_uncertainty_without_creating_compute_or_changing_analysis(
+) {
+    let f = Fixture::new();
+    let hub = Hub(AtomicUsize::new(0));
+    let analyzer = Analyzer::default();
+    analyzer.supported.store(false, Ordering::SeqCst);
+    f.core
+        .import_model_using(URL, false, &hub, &analyzer)
+        .await
+        .unwrap();
+    let before = f.core.store.read().unwrap().imported_models.remove(0);
+    let assessment = serde_json::to_value(&before.analysis).unwrap();
+    f.core
+        .select_provider(ai_deck::cloud_provider::ProviderId::Gputw)
+        .await
+        .unwrap();
+    f.core
+        .configure_imported_model(experimental_request(&before))
+        .await
+        .unwrap();
+    let state = f.core.store.read().unwrap();
+    let model = &state.imported_models[0];
+    assert_eq!(serde_json::to_value(&model.analysis).unwrap(), assessment);
+    assert_eq!(
+        state.settings.provider,
+        ai_deck::cloud_provider::ProviderId::Gputw
+    );
+    assert!(!state.settings.policy.paid_provisioning_enabled);
+    assert_eq!(model.profile_version, before.profile_version + 1);
+    assert_eq!(model.quotes[0].hourly_usd, Some(3.0));
+    let profile = model.profile.as_ref().unwrap();
+    assert_eq!(profile.model.context_tokens, 4096);
+    assert_eq!(profile.model.max_sessions, 1);
+    assert_eq!(profile.model.min_cpu_ram_gb, 48);
+    assert_eq!(profile.model.min_cache_gb, 40);
+    assert!(profile.model.tool_parser.is_none());
+    assert!(profile.model.evidence.is_empty());
+    assert!(profile.model.limitations[0].contains("Owner-configured experimental"));
+    assert_eq!(f.core.catalog().unwrap().len(), 3);
+    assert!(state.deployments.is_empty());
+    assert_eq!(f.provider.creates.load(Ordering::SeqCst), 0);
+    assert_eq!(f.provider.deletes.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn experimental_rejection_preserves_state_for_invalid_names_budget_storage_and_stale_edits() {
+    let f = Fixture::new();
+    let hub = Hub(AtomicUsize::new(0));
+    let analyzer = Analyzer::default();
+    analyzer.supported.store(false, Ordering::SeqCst);
+    f.core
+        .import_model_using(URL, false, &hub, &analyzer)
+        .await
+        .unwrap();
+    let model = f.core.store.read().unwrap().imported_models.remove(0);
+    let saved = serde_json::to_value(f.core.store.read().unwrap()).unwrap();
+    for invalid in [
+        "../../remote.py",
+        "--flag",
+        "value; command",
+        "https://example.com/code",
+    ] {
+        let mut request = experimental_request(&model);
+        request.configuration.tool_parser = Some(invalid.into());
+        assert!(f.core.configure_imported_model(request).await.is_err());
+    }
+    let mut request = experimental_request(&model);
+    request.configuration.gpu_count = 4; // 12 USD/hour > 10.
+    assert!(f.core.configure_imported_model(request).await.is_err());
+    let mut request = experimental_request(&model);
+    request.configuration.min_cache_gb = 15;
+    assert!(f.core.configure_imported_model(request).await.is_err());
+    let mut request = experimental_request(&model);
+    request.configuration.gpu_type = "invented GPU".into();
+    assert!(f.core.configure_imported_model(request).await.is_err());
+    let mut request = experimental_request(&model);
+    request.expected_profile_version += 1;
+    assert_eq!(
+        f.core
+            .configure_imported_model(request)
+            .await
+            .unwrap_err()
+            .code,
+        "model_configuration_changed"
+    );
+    assert_eq!(
+        serde_json::to_value(f.core.store.read().unwrap()).unwrap(),
+        saved
+    );
+    let mut data = serde_json::to_value(experimental_request(&model).configuration).unwrap();
+    data["extraArguments"] = json!(["--trust-remote-code"]);
+    assert!(serde_json::from_value::<ExperimentalModelConfiguration>(data).is_err());
+    assert_eq!(f.provider.creates.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn experimental_settings_survive_refresh_reanalysis_restart_and_do_not_retarget_deployments()
+{
+    let f = Fixture::new();
+    let hub = Hub(AtomicUsize::new(0));
+    let analyzer = Analyzer::default();
+    analyzer.supported.store(false, Ordering::SeqCst);
+    f.core
+        .import_model_using(URL, false, &hub, &analyzer)
+        .await
+        .unwrap();
+    let model = f.core.store.read().unwrap().imported_models.remove(0);
+    f.core
+        .configure_imported_model(experimental_request(&model))
+        .await
+        .unwrap();
+    let mut paid_request = f.request();
+    paid_request.profile_id = model.id.clone();
+    paid_request.profile_fingerprint = f
+        .core
+        .catalog()
+        .unwrap()
+        .into_iter()
+        .find(|p| p.model.id == model.id)
+        .unwrap()
+        .fingerprint;
+    assert_eq!(
+        f.core
+            .provision(paid_request.clone())
+            .await
+            .unwrap_err()
+            .code,
+        "paid_actions_disabled"
+    );
+    f.authorize_mock();
+    let id = f.core.provision(paid_request).await.unwrap();
+    let snapshot = serde_json::to_value(f.core.deployment(&id).unwrap().profile).unwrap();
+    let latest = f.core.store.read().unwrap().imported_models.remove(0);
+    let mut edit = experimental_request(&latest);
+    edit.configuration.context_tokens = 2048;
+    f.core.configure_imported_model(edit).await.unwrap();
+    f.core.refresh_model_prices(&model.id).await.unwrap();
+    f.core
+        .import_model_using(URL, true, &hub, &analyzer)
+        .await
+        .unwrap();
+    let state = f.core.store.read().unwrap();
+    let model = &state.imported_models[0];
+    assert_eq!(
+        model
+            .experimental_configuration
+            .as_ref()
+            .unwrap()
+            .context_tokens,
+        2048
+    );
+    assert_eq!(model.profile.as_ref().unwrap().model.context_tokens, 2048);
+    assert_eq!(
+        serde_json::to_value(f.core.deployment(&id).unwrap().profile).unwrap(),
+        snapshot
+    );
+    let copy = tempfile::tempdir().unwrap();
+    std::fs::write(
+        copy.path().join("state.json"),
+        serde_json::to_vec(&state).unwrap(),
+    )
+    .unwrap();
+    let reopened = StateStore::open(copy.path().into())
+        .unwrap()
+        .read()
+        .unwrap();
+    assert_eq!(
+        reopened.imported_models[0]
+            .experimental_configuration
+            .as_ref()
+            .unwrap()
+            .context_tokens,
+        2048
+    );
+    let mut legacy = serde_json::to_value(model).unwrap();
+    legacy
+        .as_object_mut()
+        .unwrap()
+        .remove("experimentalConfiguration");
+    assert!(serde_json::from_value::<ImportedModel>(legacy)
+        .unwrap()
+        .experimental_configuration
+        .is_none());
+}
+
+#[tokio::test]
+async fn changed_model_configuration_invalidates_an_old_paid_confirmation_before_provider_creation()
+{
+    let f = Fixture::new();
+    let hub = Hub(AtomicUsize::new(0));
+    let analyzer = Analyzer::default();
+    f.core
+        .import_model_using(URL, false, &hub, &analyzer)
+        .await
+        .unwrap();
+    let model = f.core.store.read().unwrap().imported_models.remove(0);
+    let mut request = f.request();
+    request.profile_id = model.id.clone();
+    request.profile_fingerprint = model.profile.as_ref().unwrap().fingerprint.clone();
+    f.core
+        .configure_imported_model(experimental_request(&model))
+        .await
+        .unwrap();
+    f.authorize_mock();
+    let error = f.core.provision(request).await.unwrap_err();
+    assert!(error.message.contains("configuration changed"));
+    assert!(f.core.store.read().unwrap().deployments.is_empty());
+    assert_eq!(f.provider.creates.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn experimental_configuration_keeps_full_weight_and_supported_task_requirements() {
+    let f = Fixture::new();
+    let hub = Hub(AtomicUsize::new(0));
+    let analyzer = Analyzer::default();
+    f.core
+        .import_model_using(URL, false, &hub, &analyzer)
+        .await
+        .unwrap();
+    let original = f.core.store.read().unwrap().imported_models.remove(0);
+    for failure in ["adapter", "format", "config", "task"] {
+        f.core
+            .store
+            .update(|s| {
+                let mut model = original.clone();
+                match failure {
+                    "adapter" => model.metadata.is_adapter = true,
+                    "format" => model.metadata.weight_format = Some("gguf".into()),
+                    "config" => model.metadata.config_json.clear(),
+                    _ => model.metadata.pipeline_tag = Some("sentence-similarity".into()),
+                }
+                s.imported_models[0] = model;
+                Ok(())
+            })
+            .unwrap();
+        let before = serde_json::to_value(f.core.store.read().unwrap()).unwrap();
+        assert!(f
+            .core
+            .configure_imported_model(experimental_request(&original))
+            .await
+            .is_err());
+        assert_eq!(
+            serde_json::to_value(f.core.store.read().unwrap()).unwrap(),
+            before
+        );
+    }
+    assert_eq!(f.provider.creates.load(Ordering::SeqCst), 0);
 }
 
 #[tokio::test]

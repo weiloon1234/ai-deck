@@ -44,6 +44,41 @@ pub struct GpuQuote {
     pub available_regions: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExperimentalModelConfiguration {
+    pub gpu_type: String,
+    pub gpu_count: u32,
+    pub min_cpu_ram_gb: u32,
+    pub disk_gb: u32,
+    pub min_cache_gb: u32,
+    pub context_tokens: u32,
+    pub tool_parser: Option<String>,
+    pub reasoning_parser: Option<String>,
+    pub quantization: Option<String>,
+}
+impl ExperimentalModelConfiguration {
+    pub fn validate(&self) -> Result<()> {
+        if self.gpu_type.trim().is_empty()
+            || self.gpu_type.len() > 200
+            || !(1..=8).contains(&self.gpu_count)
+            || !(1..=16384).contains(&self.min_cpu_ram_gb)
+            || !(20..=2000).contains(&self.disk_gb)
+            || self.min_cache_gb == 0
+            || self.min_cache_gb > self.disk_gb
+            || !(1024..=2_097_152).contains(&self.context_tokens)
+            || self
+                .tool_parser
+                .iter()
+                .chain(&self.reasoning_parser)
+                .chain(&self.quantization)
+                .any(|s| s.len() > 64 || !crate::model_catalog::identifier(s) || s.starts_with('-'))
+        {
+            return Err(AppError::invalid("Choose a GPU, bounded memory/context/storage settings and built-in parser or quantization names. Paths, commands and extra flags are not accepted."));
+        }
+        Ok(())
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportedModel {
     #[serde(default)]
@@ -59,6 +94,8 @@ pub struct ImportedModel {
     pub runtime: RuntimeProfile,
     pub profile_version: u32,
     pub profile: Option<ResolvedProfile>,
+    #[serde(default)]
+    pub experimental_configuration: Option<ExperimentalModelConfiguration>,
 }
 
 impl ModelAnalysis {
@@ -105,24 +142,38 @@ pub fn invalid_analysis() -> AppError {
 }
 
 pub fn quotes(analysis: &ModelAnalysis, hardware: &Hardware) -> Vec<GpuQuote> {
+    gpu_quotes(
+        &analysis.compatible_gpu_types,
+        analysis.gpu_count,
+        analysis.minimum_total_vram_gb,
+        hardware,
+    )
+}
+
+fn gpu_quotes(
+    gpu_types: &[String],
+    gpu_count: u32,
+    minimum_total_vram_gb: u32,
+    hardware: &Hardware,
+) -> Vec<GpuQuote> {
     let mut quotes: Vec<_> = hardware
         .gpus
         .iter()
         .filter(|g| {
             g.secure_cloud
-                && analysis.compatible_gpu_types.contains(&g.id)
-                && g.memory_in_gb.saturating_mul(analysis.gpu_count)
-                    >= analysis.minimum_total_vram_gb
+                && gpu_types.contains(&g.id)
+                && g.memory_in_gb > 0
+                && g.memory_in_gb.saturating_mul(gpu_count) >= minimum_total_vram_gb
         })
         .map(|g| GpuQuote {
             provider: hardware.provider,
             gpu_type: g.id.clone(),
-            gpu_count: analysis.gpu_count,
+            gpu_count,
             memory_per_gpu_gb: g.memory_in_gb,
             hourly_usd: g
                 .secure_price
                 .filter(|p| p.is_finite() && *p > 0.0)
-                .map(|p| p * f64::from(analysis.gpu_count))
+                .map(|p| p * f64::from(gpu_count))
                 .filter(|p| p.is_finite()),
             available_regions: hardware
                 .data_centers
@@ -149,32 +200,66 @@ pub fn quotes(analysis: &ModelAnalysis, hardware: &Hardware) -> Vec<GpuQuote> {
 }
 
 impl ImportedModel {
+    pub(crate) fn profile_metadata_error(&self, min_cache_gb: u32) -> Option<&'static str> {
+        if self.metadata.is_adapter
+            || !matches!(
+                self.metadata.weight_format.as_deref(),
+                Some("safetensors" | "pytorch")
+            )
+        {
+            Some("This runtime needs full safetensors or PyTorch weights. Adapter-only and other weight formats cannot be configured here.")
+        } else if self.metadata.config_json.is_empty() {
+            Some("Model configuration metadata is missing. Analyze again to retrieve it before configuring a trial.")
+        } else if self
+            .metadata
+            .weight_size_gb
+            .is_some_and(|gb| f64::from(min_cache_gb) <= gb)
+        {
+            Some("Required cache capacity must exceed the reported full-weight size to leave working space. Increase cache and disk capacity.")
+        } else if self
+            .metadata
+            .pipeline_tag
+            .as_deref()
+            .is_some_and(|p| !["text-generation", "image-text-to-text"].contains(&p))
+        {
+            Some("This model's task is not supported by the text-generation runtime.")
+        } else {
+            None
+        }
+    }
+
+    pub fn current_quotes(&self, hardware: &Hardware) -> Vec<GpuQuote> {
+        match &self.experimental_configuration {
+            Some(c) => gpu_quotes(std::slice::from_ref(&c.gpu_type), c.gpu_count, 0, hardware),
+            None => quotes(&self.analysis, hardware),
+        }
+    }
+
     pub fn build_profile(&self, hourly_limit: f64) -> Result<Option<ResolvedProfile>> {
         let a = &self.analysis;
+        let c = self.experimental_configuration.as_ref();
+        if let Some(configuration) = c {
+            configuration.validate()?;
+        }
+        let gpu_count = c.map_or(a.gpu_count, |c| c.gpu_count);
+        let min_cache_gb = c.map_or(a.min_cache_gb, |c| c.min_cache_gb);
         let gpus: Vec<_> = self
             .quotes
             .iter()
             .filter(|q| {
-                q.provider == self.provider && q.hourly_usd.is_some_and(|p| p <= hourly_limit)
+                q.provider == self.provider
+                    && q.gpu_count == gpu_count
+                    && q.memory_per_gpu_gb > 0
+                    && c.is_none_or(|c| q.gpu_type == c.gpu_type)
+                    && q.hourly_usd
+                        .is_some_and(|p| p.is_finite() && p > 0.0 && p <= hourly_limit)
             })
             .collect();
-        // Save unsupported analyses, but do not offer an invented working runtime.
+        // An explicit owner configuration may bypass AI uncertainty, not spending or metadata requirements.
         if self.provider != ProviderId::Runpod
-            || !a.runtime_compatible
-            || a.tool_parser.is_none()
+            || (c.is_none() && (!a.runtime_compatible || a.tool_parser.is_none()))
             || gpus.is_empty()
-            || self.metadata.config_json.is_empty()
-            || self.metadata.weight_format.is_none()
-            || self.metadata.is_adapter
-            || self
-                .metadata
-                .weight_size_gb
-                .is_some_and(|gb| f64::from(a.min_cache_gb) <= gb)
-            || self
-                .metadata
-                .pipeline_tag
-                .as_deref()
-                .is_some_and(|p| !["text-generation", "image-text-to-text"].contains(&p))
+            || self.profile_metadata_error(min_cache_gb).is_some()
         {
             return Ok(None);
         }
@@ -183,14 +268,14 @@ impl ImportedModel {
             schema_version: 1, version: self.profile_version,
             repository: self.metadata.repository.clone(), revision: self.metadata.revision.clone(), tokenizer_revision: None,
             served_model: self.id.clone(), runtime_id: self.runtime.id.clone(), access: self.metadata.access.clone(),
-            gpu_types: gpus.iter().map(|g| g.gpu_type.clone()).collect(), gpu_count: a.gpu_count,
-            min_gpu_memory_gb: a.minimum_total_vram_gb.div_ceil(a.gpu_count), min_cpu_ram_gb: a.min_cpu_ram_gb,
-            disk_gb: a.disk_gb, min_cache_gb: a.min_cache_gb, quantization: a.quantization.clone(),
-            context_tokens: a.recommended_context_tokens, max_sessions: 1,
-            sampling: Sampling { temperature: 0.7, top_p: 0.95 }, tool_parser: a.tool_parser.clone(), reasoning_parser: a.reasoning_parser.clone(),
+            gpu_types: gpus.iter().map(|g| g.gpu_type.clone()).collect(), gpu_count,
+            min_gpu_memory_gb: c.map_or(a.minimum_total_vram_gb.div_ceil(gpu_count), |_| gpus[0].memory_per_gpu_gb), min_cpu_ram_gb: c.map_or(a.min_cpu_ram_gb, |c| c.min_cpu_ram_gb),
+            disk_gb: c.map_or(a.disk_gb, |c| c.disk_gb), min_cache_gb, quantization: c.map_or_else(|| a.quantization.clone(), |c| c.quantization.clone()),
+            context_tokens: c.map_or(a.recommended_context_tokens, |c| c.context_tokens), max_sessions: 1,
+            sampling: Sampling { temperature: 0.7, top_p: 0.95 }, tool_parser: c.map_or_else(|| a.tool_parser.clone(), |c| c.tool_parser.clone()), reasoning_parser: c.map_or_else(|| a.reasoning_parser.clone(), |c| c.reasoning_parser.clone()),
             chat_template: None, model_cache_path: "/workspace/cache/huggingface".into(), compile_cache_path: "/workspace/cache/compile".into(),
             supports_responses: true, supports_messages: true, evidence: vec![],
-            limitations: std::iter::once("AI hardware suggestion for one coding session; no live compatibility or memory test has been performed.".into()).chain(a.warnings.clone()).collect(),
+            limitations: std::iter::once(if c.is_some() { format!("Owner-configured experimental trial for one coding session; no live compatibility or memory test has been performed. Codex assessment: {}", a.compatibility_reason) } else { "AI hardware suggestion for one coding session; no live compatibility or memory test has been performed.".into() }).chain(a.warnings.clone()).collect(),
         };
         let json = serde_json::to_string(&CatalogDocument {
             schema_version: 1,

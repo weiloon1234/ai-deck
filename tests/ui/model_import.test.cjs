@@ -28,9 +28,9 @@ test('pasted URL automatically requests analysis and explains reuse without prov
 });
 function savedModel() {
   return {
-    id: 'saved-model', sourceUrl: 'https://huggingface.co/org/repo/tree/main', profile: { model: {} },
+    id: 'saved-model', provider: 'runpod', profileVersion: 1, experimentalConfiguration: null, sourceUrl: 'https://huggingface.co/org/repo/tree/main', profile: { model: {} },
     metadata: { repository: 'org/repo', revision: 'a'.repeat(40), access: 'public', weightSizeGb: 15, weightFormat: 'safetensors', parameterCount: 7615616512, license: 'apache-2.0', configJson: JSON.stringify({ architectures: ['Qwen2ForCausalLM'], model_type: 'qwen2', max_position_embeddings: 32768, torch_dtype: 'bfloat16', num_hidden_layers: 28 }), notes: [] },
-    analysis: { summary: 'Estimate', runtimeCompatible: true, compatibilityReason: 'Candidate', minimumTotalVramGb: 24, gpuCount: 1, contextMinTokens: 4096, contextMaxTokens: 16384, recommendedContextTokens: 8192, minCpuRamGb: 32, diskGb: 50, minCacheGb: 20, assumptions: [], warnings: [] },
+    analysis: { summary: 'Estimate', runtimeCompatible: true, compatibilityReason: 'Candidate', minimumTotalVramGb: 24, gpuCount: 1, contextMinTokens: 4096, contextMaxTokens: 16384, recommendedContextTokens: 8192, minCpuRamGb: 32, diskGb: 50, minCacheGb: 20, toolParser: 'hermes', reasoningParser: null, quantization: null, assumptions: [], warnings: [] },
     quotes: [{ gpuType: 'Example GPU', gpuCount: 1, hourlyUsd: 12.5, availableRegions: [] }],
     analyzedAt: 100, pricesCheckedAt: 100, analyzerVersion: 'fixture', runtime: { version: '0.31.0' },
   };
@@ -47,6 +47,67 @@ test('suggestion shows context range, dated price and over-budget status; use se
   assert.equal(find(card, n => n.type.fixtureComponent === 'ModelHardwareSuggestion.vue').props.model, model);
   find(card, n => n.type === 'button' && text(n).includes('Use saved suggestion')).props.onClick();
   assert.equal(deck.selectedProfileId.value, model.id); assert.equal(deck.view.value, 'deployments');
+});
+
+const experimentalHardware = { provider: 'runpod', gpus: [{ id: 'Example GPU', displayName: 'Fixture GPU', memoryInGb: 24, secureCloud: true, securePrice: 3 }], dataCenters: [], networkVolumes: [] };
+test('an uncertain saved model exposes an inline editor instead of a review queue', () => {
+  const deck = fixture(); const model = savedModel(); model.profile = null; model.analysis.runtimeCompatible = false;
+  const render = component('src/features/models/ModelSuggestion.vue', deck).setup({ model }, {});
+  const tree = render({}, []);
+  assert.match(text(tree), /SAVED · NOT CONFIGURED/); assert.doesNotMatch(text(tree), /NEEDS REVIEW/);
+  find(tree, n => n.type === 'button' && text(n) === 'Edit configuration').props.onClick();
+  assert.equal(find(render({}, []), n => n.type.fixtureComponent === 'ModelConfigurationEditor.vue').props.model, model);
+  assert.equal(deck.calls.length, 0);
+});
+test('experimental editing saves normalized configuration and opens deployment without creating compute', async () => {
+  const deck = fixture(); const model = savedModel(); model.profile = null; model.analysis.runtimeCompatible = false;
+  deck.call = async (command, args) => { deck.calls.push({ command, args }); if (command === 'imported_model_hardware') return experimentalHardware; };
+  const events = [];
+  const setup = component('src/features/models/ModelConfigurationEditor.vue', deck, false).setup({ model }, { emit: name => events.push(name), expose() {} });
+  await setup.loadHardware();
+  assert.ok(setup.hardwareCheckedAt.value > model.pricesCheckedAt); // This read is distinct from the saved snapshot.
+  setup.configuration.value.contextTokens = 4096; setup.configuration.value.toolParser = ' hermes '; setup.configuration.value.reasoningParser = '';
+  await setup.tryExperimentally();
+  assert.equal(deck.calls[0].command, 'imported_model_hardware'); assert.equal(deck.calls[0].args.id, model.id);
+  const saved = JSON.parse(JSON.stringify(deck.calls[1]));
+  assert.equal(saved.command, 'configure_imported_model'); assert.equal(saved.args.request.expectedProfileVersion, 1);
+  assert.equal(saved.args.request.configuration.toolParser, 'hermes'); assert.equal(saved.args.request.configuration.reasoningParser, null);
+  assert.equal(saved.args.request.configuration.contextTokens, 4096);
+  assert.equal(model.analysis.runtimeCompatible, false); assert.equal(model.analysis.recommendedContextTokens, 8192);
+  assert.equal(deck.selectedProfileId.value, model.id); assert.equal(deck.view.value, 'deployments'); assert.deepEqual(events, ['close']);
+  assert.match(deck.modelImportNotice.value, /No compute was created/);
+  assert.ok(deck.calls.every(c => !['provision', 'enable', 'launch_session'].includes(c.command)));
+});
+test('experimental editing retains failed drafts and prevents stale or over-budget saves', async () => {
+  const deck = fixture(); const model = vue.reactive(savedModel());
+  model.experimentalConfiguration = { gpuType: 'Example GPU', gpuCount: 1, contextTokens: 2048, minCpuRamGb: 32, diskGb: 50, minCacheGb: 20, toolParser: null, reasoningParser: null, quantization: null };
+  deck.call = async command => command === 'imported_model_hardware' ? experimentalHardware : undefined;
+  const setup = component('src/features/models/ModelConfigurationEditor.vue', deck, false).setup({ model }, { emit() { throw Error('Must not close failed editor'); }, expose() {} });
+  await setup.loadHardware();
+  setup.configuration.value.contextTokens = 4096;
+  assert.equal(model.experimentalConfiguration.contextTokens, 2048); // Draft is independent even for reactive props.
+  setup.configuration.value.gpuCount = 4;
+  assert.equal(setup.rate.value, 12); await setup.tryExperimentally(); assert.equal(deck.view.value, 'models');
+  setup.configuration.value.gpuCount = 1;
+  deck.modelOperation = async () => undefined;
+  await setup.tryExperimentally(); assert.match(setup.saveError.value, /not saved/); assert.equal(setup.configuration.value.contextTokens, 4096);
+  model.profileVersion = 2;
+  assert.equal(setup.changed.value, true); await setup.tryExperimentally(); assert.equal(deck.view.value, 'models');
+});
+test('experimental editing uses saved provider options and directs a different selected provider to setup', async () => {
+  const deck = fixture(); deck.state.value.settings.provider = 'gputw'; const model = savedModel();
+  deck.call = async command => command === 'imported_model_hardware' ? experimentalHardware : undefined;
+  const setup = component('src/features/models/ModelConfigurationEditor.vue', deck, false).setup({ model }, { emit() {}, expose() {} });
+  await setup.loadHardware(); await setup.tryExperimentally();
+  assert.equal(deck.state.value.settings.provider, 'gputw'); assert.equal(deck.view.value, 'setup'); assert.equal(deck.selectedProfileId.value, model.id);
+});
+test('a configuration save completing after navigation does not redirect the owner', async () => {
+  const deck = fixture(); const model = savedModel(); let complete;
+  deck.call = async command => command === 'imported_model_hardware' ? experimentalHardware : new Promise(resolve => { complete = resolve; });
+  const setup = component('src/features/models/ModelConfigurationEditor.vue', deck, false).setup({ model }, { emit() {}, expose() {} });
+  await setup.loadHardware(); const save = setup.tryExperimentally();
+  deck.view.value = 'projects'; complete(); await save;
+  assert.equal(deck.view.value, 'projects'); assert.equal(deck.selectedProfileId.value, '');
 });
 test('model details show saved facts and published context independently of the AI estimate', () => {
   const metadata = savedModel().metadata;

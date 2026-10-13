@@ -91,6 +91,8 @@ pub fn run() {
             commands::import_hugging_face_model,
             commands::cancel_model_import,
             commands::refresh_model_prices,
+            commands::configure_imported_model,
+            commands::imported_model_hardware,
             commands::remove_imported_model,
             commands::export_diagnostics,
             commands::open_external,

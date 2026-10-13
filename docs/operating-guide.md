@@ -18,7 +18,7 @@ The recommended first candidate is GPT OSS 20B on one H100 80GB. Qwen3 Coder 30B
 
 These steps currently use Runpod. GPUtw has its own setup flow below.
 
-1. Select a model in Models or Deployment. Review its limitations and version details.
+1. Select a model in Models or Deployment. Review its limitations and version details. For an uncertain saved model, choose **Edit configuration → Try experimentally** to prepare an untested configuration; this saves settings without creating compute. See the [experimental editor](model-import.md#configure-an-experimental-trial).
 2. **Check availability**, select a currently available location, and optionally select an existing network volume in that location. The app never creates or deletes network volumes.
 3. **Provision Runpod** opens a cost confirmation. Only **Create paid Pod** submits a creation request. Pricing is rechecked before creation and again after the provider reports the actual Pod rate. Over-limit or missing actual prices trigger cleanup, but short startup charges can still occur.
 4. Watch Downloading, Loading, and Verifying. The status service requires the deployment credential. Ready requires rejecting a bad credential, matching the served model name, and returning an inference result. Ready is not proof of reliable coding ability.

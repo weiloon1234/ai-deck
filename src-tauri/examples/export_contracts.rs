@@ -1,6 +1,11 @@
 use ai_deck::{
-    cloud_provider::*, error::AppError, hugging_face_client::HubModel, model_analysis::*,
-    model_catalog::*, model_import_service::ModelImportResult, provider_service::ProviderStatus,
+    cloud_provider::*,
+    error::AppError,
+    hugging_face_client::HubModel,
+    model_analysis::*,
+    model_catalog::*,
+    model_import_service::{ConfigureImportedModelRequest, ModelImportResult},
+    provider_service::ProviderStatus,
     types::*,
 };
 use ts_rs::TS;
@@ -44,8 +49,10 @@ fn main() {
         HubModel,
         ModelAnalysis,
         GpuQuote,
+        ExperimentalModelConfiguration,
         ImportedModel,
-        ModelImportResult
+        ModelImportResult,
+        ConfigureImportedModelRequest
     );
     let types = types
         .lines()

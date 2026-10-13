@@ -219,6 +219,7 @@ pub struct AppSnapshot {
 pub struct ProvisionRequest {
     pub provider: crate::cloud_provider::ProviderId,
     pub profile_id: String,
+    pub profile_fingerprint: String,
     pub gpu_type: String,
     pub data_center_id: String,
     pub network_volume_id: Option<String>,

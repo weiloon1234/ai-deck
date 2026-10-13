@@ -32,7 +32,7 @@ export type LocalState = { schemaVersion: number, installationId: string, settin
 
 export type AppSnapshot = { providers: Array<ProviderStatus>, state: LocalState, catalog: Array<ResolvedProfile>, runpodKeyConfigured: boolean | null, catalogError: AppError | null, credentialStoreError: AppError | null, hourlyCeilingUsd: number, offlineExpiryVerified: boolean, appVersion: string, };
 
-export type ProvisionRequest = { provider: ProviderId, profileId: string, gpuType: string, dataCenterId: string, networkVolumeId: string | null, acknowledgePaidCreation: boolean, };
+export type ProvisionRequest = { provider: ProviderId, profileId: string, profileFingerprint: string, gpuType: string, dataCenterId: string, networkVolumeId: string | null, acknowledgePaidCreation: boolean, };
 
 export type LaunchRequest = { projectId: string, cli: CliKind, name: string, allowUnverified: boolean, };
 
@@ -76,7 +76,11 @@ export type ModelAnalysis = { summary: string, runtimeCompatible: boolean, compa
 
 export type GpuQuote = { provider: ProviderId, gpuType: string, gpuCount: number, memoryPerGpuGb: number, hourlyUsd: number | null, availableRegions: Array<string>, };
 
-export type ImportedModel = { provider: ProviderId, id: string, sourceUrl: string, metadata: HubModel, analysis: ModelAnalysis, analyzerVersion: string, analyzedAt: number, pricesCheckedAt: number, quotes: Array<GpuQuote>, runtime: RuntimeProfile, profileVersion: number, profile: ResolvedProfile | null, };
+export type ExperimentalModelConfiguration = { gpuType: string, gpuCount: number, minCpuRamGb: number, diskGb: number, minCacheGb: number, contextTokens: number, toolParser: string | null, reasoningParser: string | null, quantization: string | null, };
+
+export type ImportedModel = { provider: ProviderId, id: string, sourceUrl: string, metadata: HubModel, analysis: ModelAnalysis, analyzerVersion: string, analyzedAt: number, pricesCheckedAt: number, quotes: Array<GpuQuote>, runtime: RuntimeProfile, profileVersion: number, profile: ResolvedProfile | null, experimentalConfiguration: ExperimentalModelConfiguration | null, };
 
 export type ModelImportResult = { id: string, reused: boolean, };
+
+export type ConfigureImportedModelRequest = { id: string, expectedProfileVersion: number, configuration: ExperimentalModelConfiguration, };
 

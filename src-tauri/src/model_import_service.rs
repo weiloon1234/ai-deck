@@ -3,7 +3,7 @@ use crate::{
     codex_model_analyzer::{check_cancelled, AnalysisInput, CodexModelAnalyzer, ModelAnalyzer},
     error::{AppError, Result},
     hugging_face_client::{HuggingFaceApi, HuggingFaceClient, ModelSource},
-    model_analysis::{quotes, ImportedModel},
+    model_analysis::{ExperimentalModelConfiguration, ImportedModel},
     model_catalog::builtin_catalog,
     types::{now, HOURLY_CEILING_USD},
 };
@@ -47,6 +47,14 @@ impl ModelImports {
 pub struct ModelImportResult {
     pub id: String,
     pub reused: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ConfigureImportedModelRequest {
+    pub id: String,
+    pub expected_profile_version: u32,
+    pub configuration: ExperimentalModelConfiguration,
 }
 
 async fn cancellable<T>(
@@ -134,7 +142,7 @@ impl AppCore {
             provider: provider_id,
             id: format!("hf-{:x}", Sha256::digest(source.url().as_bytes())),
             source_url: source.url(),
-            quotes: quotes(&analysis, &hardware),
+            quotes: vec![],
             metadata,
             analysis,
             analyzer_version,
@@ -143,7 +151,9 @@ impl AppCore {
             runtime,
             profile_version: existing.map_or(1, |m| m.profile_version.saturating_add(1)),
             profile: None,
+            experimental_configuration: existing.and_then(|m| m.experimental_configuration.clone()),
         };
+        record.quotes = record.current_quotes(&hardware);
         self.import_progress("Saving model and suggestions…");
         self.store.update(|s| {
             check_cancelled(&self.model_imports.cancelled)?;
@@ -187,7 +197,7 @@ impl AppCore {
                 .iter_mut()
                 .find(|m| m.id == id)
                 .ok_or_else(|| AppError::invalid("Saved model not found."))?;
-            record.quotes = quotes(&record.analysis, &hardware);
+            record.quotes = record.current_quotes(&hardware);
             record.prices_checked_at = now();
             record.profile_version = record.profile_version.saturating_add(1);
             record.profile =
@@ -196,6 +206,67 @@ impl AppCore {
         })?;
         self.changed();
         Ok(())
+    }
+
+    pub async fn configure_imported_model(
+        &self,
+        request: ConfigureImportedModelRequest,
+    ) -> Result<()> {
+        let _guard = self
+            .model_imports
+            .lock
+            .try_lock()
+            .map_err(|_| import_busy())?;
+        request.configuration.validate()?;
+        self.model_imports.cancelled.store(false, Ordering::Release);
+        let record = self
+            .store
+            .read()?
+            .imported_models
+            .into_iter()
+            .find(|m| m.id == request.id)
+            .ok_or_else(|| AppError::invalid("Saved model not found."))?;
+        if record.profile_version != request.expected_profile_version {
+            return Err(configuration_changed());
+        }
+        record.provider.ensure_provisioning()?;
+        // Read the saved provider's actual GPU prices; no resource is created.
+        let hardware = cancellable(
+            self.imported_model_hardware(&request.id),
+            &self.model_imports.cancelled,
+        )
+        .await?;
+        self.store.update(|s| {
+            check_cancelled(&self.model_imports.cancelled)?;
+            let model = s.imported_models.iter_mut().find(|m| m.id == request.id)
+                .ok_or_else(|| AppError::invalid("Saved model not found."))?;
+            if model.profile_version != request.expected_profile_version { return Err(configuration_changed()); }
+            model.experimental_configuration = Some(request.configuration.clone());
+            model.profile_version = model.profile_version.saturating_add(1);
+            model.quotes = model.current_quotes(&hardware);
+            model.prices_checked_at = now();
+            model.profile = Some(model.build_profile(s.settings.policy.max_hourly_usd.min(HOURLY_CEILING_USD))?
+                .ok_or_else(|| AppError::invalid(model.profile_metadata_error(request.configuration.min_cache_gb)
+                    .unwrap_or("Choose a GPU with a current positive price within your hourly limit. Review its count and refresh GPU options.")))?);
+            Ok(())
+        })?;
+        self.changed();
+        Ok(())
+    }
+
+    pub async fn imported_model_hardware(
+        &self,
+        id: &str,
+    ) -> Result<crate::cloud_provider::Hardware> {
+        let provider = self
+            .store
+            .read()?
+            .imported_models
+            .into_iter()
+            .find(|m| m.id == id)
+            .ok_or_else(|| AppError::invalid("Saved model not found."))?
+            .provider;
+        self.providers.get(provider)?.hardware().await
     }
     pub fn remove_imported_model(&self, id: &str) -> Result<()> {
         let _guard = self
@@ -216,5 +287,13 @@ fn import_busy() -> AppError {
         "model_import_busy",
         "A model import or price refresh is already running.",
         "Wait for it to finish or cancel it in Models.",
+    )
+}
+
+fn configuration_changed() -> AppError {
+    AppError::new(
+        "model_configuration_changed",
+        "This saved model changed while you were editing.",
+        "Close and reopen Edit configuration to load its latest revision and settings.",
     )
 }

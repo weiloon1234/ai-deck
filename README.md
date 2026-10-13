@@ -7,7 +7,7 @@ The app is built with **Tauri, Vue 3, TypeScript and Rust**. A small Python supe
 ## What you can do
 
 1. **Choose a model.** Use a bundled catalog profile or paste a Hugging Face URL. The app reads the model's metadata and asks your signed-in local Codex CLI to suggest hardware for one coding session.
-2. **Review the model and cost.** See published model details alongside the suggested GPU memory, usable context range, CPU memory, disk/cache requirements and Runpod price snapshots. Suggestions are saved locally for reuse; refreshing prices does not rerun Codex.
+2. **Review the model and cost.** See published model details alongside the suggested GPU memory, usable context range, CPU memory, disk/cache requirements and Runpod price snapshots. If Codex is unsure, choose **Edit configuration → Try experimentally** to prepare your own untested settings. Saving does not create compute; refreshing prices does not rerun Codex.
 3. **Provision Runpod.** Choose compute, region and temporary or retained model storage. Paid creation requires opt-in, spending/lifetime limits and confirmation.
 4. **Enable the endpoint.** After the model starts, the native app checks authentication, model identity and inference before allowing it to serve new sessions.
 5. **Open a coding CLI.** Each embedded terminal uses a local project folder, its own CLI state and an explicit binding to the selected deployment.
@@ -17,7 +17,7 @@ Closing a terminal or window leaves the Pod running. Retained network volumes su
 
 ## Current status
 
-The desktop workflow and provider setup pass the **13 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **106 tests** (61 Rust, 19 Python, 26 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **No paid Runpod or GPUtw tests have been performed.** Bundled profiles and imported AI suggestions are unverified candidates, not proven runnable configurations. A successful real-subscription model analysis and real coding sessions on the chosen GPU remain owner-operated checks.
+The desktop workflow, provider setup and experimental model editor pass the **13 October 2026** local checks: generated contracts, production frontend, Rust formatting/lints and **117 tests** (67 Rust, 19 Python, 31 UI). Current packaging results and limits are in the [local validation record](docs/local-validation.md). **No paid Runpod or GPUtw tests have been performed.** Bundled profiles, imported AI suggestions and manually configured experiments are unverified candidates. Live model inference and coding compatibility on the chosen GPU remain owner-operated checks.
 
 Paid provisioning defaults to off. The maximum configurable GPU rate is **USD 10/hour**; storage is separate. A published model context limit describes its saved configuration, while the AI's usable context range estimates what might fit the proposed GPU setup. Neither is a measured performance guarantee.
 
@@ -68,11 +68,11 @@ Vue organizes the app into Setup, Models, Projects, Deployments and Sessions. `s
 
 ### Model library and configuration
 
-Hugging Face imports resolve a URL to an immutable revision, read bounded metadata/config/card files, obtain Runpod hardware prices and request structured analysis from the local Codex CLI. Rust validates the result and calculates prices from provider quotes. A usable proposal becomes an untested catalog profile; unsupported proposals stay in the library for reference.
+Hugging Face imports resolve a URL to an immutable revision, read bounded metadata/config/card files, obtain Runpod hardware prices and request structured analysis from the local Codex CLI. Rust validates the result and calculates prices from provider quotes. A usable proposal becomes an untested catalog profile. **Edit configuration** can create an experimental profile even when Codex is uncertain, while preserving its original analysis. The native save path refreshes the saved provider's quotes, validates structured settings and retains spending and full-weight requirements. Unsupported formats and incomplete model metadata remain saved for reference.
 
 Model facts come from saved Hugging Face metadata/config. Hardware and usable-context suggestions come from Codex. The app displays these separately and reuses the same components in the model library and deployment preparation. It does not download model weights during import.
 
-`model-catalog/catalog.json` is the source for bundled model/runtime settings. Rust owns catalog validation, shared data types, provider availability and defaults. `npm run contracts` generates frontend contracts, default settings, browser-preview provider metadata and the catalog JSON schema. Each deployment retains its full resolved profile snapshot, so editing the library cannot silently change existing sessions.
+`model-catalog/catalog.json` is the source for bundled model/runtime settings. Rust owns catalog validation, shared data types, provider availability and defaults. `npm run contracts` generates frontend contracts, default settings, browser-preview provider metadata and the catalog JSON schema. Each deployment retains its full resolved profile snapshot, so editing the library cannot silently change existing sessions. Paid creation also checks the reviewed profile fingerprint; changing its settings invalidates an older confirmation.
 
 ### Persistence and credentials
 

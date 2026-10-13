@@ -250,6 +250,17 @@ pub async fn refresh_model_prices(core: Core<'_>, id: String) -> Result<()> {
     core.refresh_model_prices(&id).await
 }
 #[tauri::command]
+pub async fn configure_imported_model(
+    core: Core<'_>,
+    request: crate::model_import_service::ConfigureImportedModelRequest,
+) -> Result<()> {
+    core.configure_imported_model(request).await
+}
+#[tauri::command]
+pub async fn imported_model_hardware(core: Core<'_>, id: String) -> Result<Hardware> {
+    core.imported_model_hardware(&id).await
+}
+#[tauri::command]
 pub fn remove_imported_model(core: Core<'_>, id: String) -> Result<()> {
     core.remove_imported_model(&id)
 }

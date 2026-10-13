@@ -20,6 +20,7 @@ AI Deck manages temporary cloud inference for local coding projects. Read [READM
 - Keep Provision, Enable and Open CLI separate. Closing a session/window must not silently terminate compute. Finish must preserve ownership checks, verify cloud deletion and wait for affected local process cleanup.
 - Preserve saved deployment/session bindings. Catalog edits and new selections must not silently retarget existing sessions.
 - AI hardware/context estimates, published model metadata, provider price snapshots and measured compatibility evidence are different data. Label them accurately. Never present mocked tests or generated suggestions as successful live model validation.
+- The owner authorized Edit configuration → Try experimentally for uncertain imported models. Keep manual settings separate from Codex's analysis. Bypass only AI uncertainty; preserve structured validation, supported full weights/metadata, provider quotes, spending controls and ownership/cleanup. Saved configurations remain untested, and paid requests must match the reviewed profile fingerprint.
 - The owner authorized automatic normal-subscription Codex analysis when importing a Hugging Face URL. Keep that narrow analysis integration separate from app-isolated coding terminals and normal terminal configuration.
 
 ## Rename compatibility
@@ -34,11 +35,11 @@ The project/package name is `ai-deck`, Rust library `ai_deck`, and displayed pro
 | Provider identity, capabilities and adapter routing | `src-tauri/src/cloud_provider.rs`; setup/key operations in `provider_service.rs` |
 | Runpod protocol and GPUtw read-only setup check | `src-tauri/src/runpod_client.rs` and `src-tauri/src/gputw_client.rs` |
 | Bundled model/runtime settings | `model-catalog/catalog.json`; validate in `model_catalog.rs` |
-| Imported metadata, analysis and quotes | Existing `StateStore` through `model_import_service.rs` |
+| Imported metadata, analysis, experimental configuration and quotes | Existing `StateStore` through `model_import_service.rs`; profile/quote construction in `model_analysis.rs` |
 | Generated frontend types/defaults/catalog schema | Rust sources and `src-tauri/examples/export_contracts.rs`; run `npm run contracts` |
 | Developer commands | `package.json` scripts; `Makefile` provides Mac-friendly wrappers |
 | Shared UI state and command/event bridge | `src/shared/useDeck.ts` |
-| CLI isolation and supported versions | `src-tauri/src/cli_adapters/` |
+| CLI isolation and version discovery | `src-tauri/src/cli_adapters/` |
 | GPU startup behavior | `containers/vllm-runtime/launcher.py` |
 
 Do not hand-edit `src/shared/contracts.ts`, `src/shared/defaults.json`, `src/shared/providers.json` or `model-catalog/schema.json`. Do not edit build artifacts, dependency directories or generated Tauri schema files as implementation sources. Avoid introducing another store or a database dependency for the model library.

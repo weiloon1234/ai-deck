@@ -2,7 +2,26 @@
 
 Host: Apple Silicon Mac, macOS 26.6.2. Implementation work: 5–6 October 2026; release-readiness review: 8 October 2026; provider assessment/refactor: 10 October 2026. **No Runpod or GPUtw compute, retained storage, model downloads or paid inference were created by these checks.**
 
-The latest **13 October 2026** owner-directed CLI trial changes passed generated-contract drift, production frontend, Rust formatting/Clippy and **107 regular tests** (62 Rust, 19 Python, 26 Vue). Four optional Rust probes are ignored by the regular suite and were not rerun for this change. Earlier installed-CLI checks and their limits are preserved below.
+The latest **13 October 2026** experimental model editor passed generated-contract drift, production frontend, Rust formatting/Clippy and **117 regular tests** (67 Rust, 19 Python, 31 Vue). Four optional Rust probes are ignored by the regular suite and were not rerun for this change. Earlier installed-CLI checks and their limits are preserved below.
+
+## Experimental model configuration — 13 October 2026
+
+The owner authorized **Edit configuration → Try experimentally** for models Codex considers uncertain, while retaining spending controls. Imported cards now open an inline editor for GPU/count, context, CPU RAM, disk/cache and optional built-in runtime names. Manual settings remain separate from the original AI analysis. Native saving checks the expected profile version, refreshes quotes using the saved model's provider, validates full-weight/config metadata and storage, and constructs an untested profile through the existing catalog path. It does not create compute or change existing deployment/session snapshots. Reanalysis and price refresh preserve manual settings. An older paid confirmation is closed in the interface and rejected natively when its profile fingerprint no longer matches.
+
+| Check | Result and limits |
+| --- | --- |
+| `CARGO_NET_OFFLINE=true npm run contracts` | Passed. Generated the new configuration/request declarations and paid-request fingerprint from Rust; generated files were not hand-edited. |
+| `CARGO_NET_OFFLINE=true npm run check` | Passed, including a final rerun after the editor quote-timestamp correction: generated drift, Vue/TypeScript production build, Rust formatting and Clippy with warnings denied. |
+| `CARGO_NET_OFFLINE=true npm test` | Passed: 67 Rust, 19 Python and 31 Vue tests; four opt-in probes ignored. Checks used fake services/credentials and disposable state, with authorized localhost/PTY permission. |
+| Experimental regressions | Passed: manual settings bypass AI uncertainty without inventing compatibility evidence; invalid names, stale saves, unknown fields, unsupported metadata, insufficient cache and over-limit/missing quotes remain rejected. Saved-provider routing, retained settings after refresh/reanalysis/restart, unchanged deployment snapshots, late-navigation handling, failed drafts and paid fingerprint binding are covered. |
+| `npm run test:ui` | All 31 Vue tests passed again after the final timestamp correction. The editor displays the fresh hardware read's timestamp rather than the older saved quote timestamp. Native source was unchanged after the full suite. |
+| Isolated UI review | Actual components inspected at 1280 × 850 and 960 × 650 with explicit synthetic fixture data. No horizontal document overflow or console warnings/errors observed. An over-limit GPU count disables the trial action; a successful fake save opens Deployment while paid provisioning remains disabled. These are UI fixtures, not provider/model acceptance. |
+| Impeccable review | One mechanical detector run returned no findings. The finish review requested the quote timestamp; that fix was applied, tested and recaptured, then accepted. Preserved the existing visual system. Captures and the scoped design evidence are ignored under `.local/model-configuration/`; the verdict is not a new whole-app audit. |
+| `CARGO_NET_OFFLINE=true npm run tauri -- build --bundles app` and `codesign --verify --deep --strict` | Passed on the final source. Rebuilt and verified the arm64 `src-tauri/target/release/bundle/macos/AI Deck.app` with its existing identifier and ad-hoc signature. Replace the previously installed copy to use the editor. No Developer ID signing/notarization or native interaction against owner state was performed. |
+
+No paid cloud tests, real subscription analysis, installed-CLI probes, model downloads or inference were run. No owner credentials or saved application state were used, and the native app was not opened against them. The existing paid opt-in, hourly ceiling, budget/lifetime controls, creation confirmation, candidate acknowledgement and ownership/cleanup paths remain. Live startup and coding compatibility still require owner-led testing.
+
+A focused manual simplification pass reused quote/profile construction and metadata validation and kept draft settings separate from saved records; no `/simplify` command was available. README, operating/model guidance and root/native/frontend agent instructions describe the authorized flow. Existing `.gitignore` and `.gitattributes` cover the new Vue source, tracked generated contracts and ignored previews/build outputs; no rules, dependencies or lockfiles changed.
 
 ## Owner-directed CLI trials — 13 October 2026
 

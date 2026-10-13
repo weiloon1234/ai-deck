@@ -14,7 +14,20 @@ Each entry contains:
 - Compatible Runpod GPU options with price snapshots, timestamps, and region stock signals. The native app calculates GPU count × provider unit price; Codex cannot supply a price field. Storage and other separately billed charges are excluded.
 - An untested launch profile when the proposal fits the pinned runtime and the configured GPU budget (at most USD 10/hour).
 
-The least expensive suggested GPU appears first. Stock signals do not guarantee that a particular GPU count is currently available. Unsupported formats, adapter-only repositories, incomplete configs, missing tool-calling support, insufficient estimated cache capacity, and proposals without a priced option inside the budget remain saved for reference without a launch profile. The app does not invent another model or quantization to fit the budget.
+The least expensive suggested GPU appears first. Stock signals do not guarantee that a particular GPU count is currently available. Without an explicit manual configuration, uncertain runtime/tool-calling proposals remain saved without a launch profile. **Edit configuration** lets the owner prepare an experimental trial. Full safetensors/PyTorch weights, a supported generation task, model config metadata, sufficient cache and a positive provider quote inside the hourly limit remain required. The app does not invent another model or quantization to fit the budget.
+
+## Configure an experimental trial
+
+There is no review queue or assigned reviewer. **Saved · Not configured** means no launch profile exists yet. Open **Edit configuration** on the saved model card, including models Codex marked uncertain.
+
+1. Choose a Runpod GPU and count from current read-only hardware options. The editor shows total GPU rate, its own check time, and the hourly limit; storage is extra.
+2. Adjust context, CPU memory, temporary disk and cache capacity for one coding session. Cache must exceed the reported full-weight size and leave working space. The model identity/revision and pinned runtime stay fixed in this editor.
+3. Expand **Optional runtime settings** to edit tool-call parser, reasoning parser and quantization names. Empty fields omit their flags. Names must be built-in identifiers; the form cannot add commands, paths, arbitrary images, extra flags or remote-code execution. An unsupported combination may fail during startup or coding.
+4. Choose **Try experimentally**. This saves your configuration separately from Codex's analysis and selects it in Deployment. It does not create a Pod. If another provider is selected, choose Runpod in Setup before preparing this Runpod model.
+
+The resulting profile is labeled **Experimental · Untested** and has no passing evidence. Deployment still requires current availability, the hourly ceiling, total budget, maximum lifetime, paid-provisioning opt-in and explicit **Create paid Pod** confirmation. Ready/Enable still require the existing authenticated endpoint checks, and opening an untested CLI/model combination retains the candidate-test acknowledgement.
+
+Failed or stale saves preserve the previous record and draft. Reopen the editor if the saved model changes while you are editing. Successful edits change the library's profile version/fingerprint; existing deployments and sessions keep their snapshots. Changing a profile also closes an old paid-creation confirmation, and Rust rejects requests for an outdated fingerprint.
 
 ## Model details in the app
 
@@ -31,9 +44,9 @@ The library uses the existing atomic local `state.json` store under `importedMod
 ## Reuse and refresh
 
 - Pasting an already saved URL reuses its analysis immediately, including while offline. The plain repository URL and `/tree/main` identify the same entry.
-- **Refresh prices** reads Runpod again and persists updated quotes without consuming another Codex analysis. It rechecks the stored hardware choices; **Analyze again** can consider new GPU choices.
-- **Analyze again** explicitly fetches the URL's current revision and replaces the saved suggestion only after a complete valid result. A failed or cancelled run preserves the previous entry.
-- **Use saved suggestion** selects its deployment profile. Creating a Pod still requires the existing paid-provisioning opt-in, budget/lifetime, current-price checks and explicit creation confirmation.
+- **Refresh prices** reads the saved provider again without consuming another Codex analysis. It uses your manual GPU configuration when present, otherwise the AI's suggested hardware. If no quote fits the limit, the manual settings remain saved while the launch profile becomes unavailable.
+- **Analyze again** explicitly fetches the URL's current revision and replaces the saved AI analysis only after a complete valid result. Your manual experimental settings are retained. A failed or cancelled run preserves the previous entry.
+- **Use saved suggestion**, or **Try experimentally** for a saved manual profile, selects its deployment profile. Creating a Pod still requires the existing paid-provisioning opt-in, budget/lifetime, current-price checks and explicit creation confirmation.
 - Removing a library entry preserves existing deployment/session snapshots. It does not remove projects, credentials, Pods or retained volumes.
 
 Imports have their own lock and cancellation path. Analysis never holds the deployment operations lock, so Finish and reconciliation remain available. Quit cancels and waits for analysis cleanup. Codex has a four-minute analysis timeout; metadata requests are bounded and cancellable.
